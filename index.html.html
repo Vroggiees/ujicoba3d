@@ -1,0 +1,3165 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Laboratorium Virtual Gitar Elektrik 3D | Museum Musik Interaktif</title>
+
+  <!-- Google Fonts: Space Grotesk, Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            lab: {
+              bg: '#060d17',
+              panel: 'rgba(10, 20, 36, 0.78)',
+              cyan: '#22d3ee',
+              sky: '#0ea5e9',
+              purple: '#a855f7',
+              orange: '#f97316',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Three.js + OrbitControls + GLTFLoader via CDN (r128 compatible non-module builds for guaranteed single-file execution) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #060d17;
+      color: #e2e8f0;
+      user-select: none;
+    }
+
+    /* Custom Holographic Glassmorphism */
+    .holo-panel {
+      background: linear-gradient(145deg, rgba(11, 23, 42, 0.84) 0%, rgba(6, 13, 23, 0.90) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 0 20px rgba(14, 165, 233, 0.06);
+    }
+
+    .holo-card {
+      background: rgba(15, 29, 52, 0.55);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .holo-card:hover {
+      background: rgba(14, 165, 233, 0.14);
+      border-color: rgba(34, 211, 238, 0.55);
+      transform: translateY(-1px);
+    }
+
+    .holo-card.active {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.24), rgba(168, 85, 247, 0.16));
+      border-color: #22d3ee;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
+    }
+
+    /* Custom Scrollbar for Sidebars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(6, 13, 23, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(34, 211, 238, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(34, 211, 238, 0.6);
+    }
+
+    /* 3D Hotspot Pin Styling */
+    .hotspot-pin {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 30px;
+      height: 30px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 30% 30%, #22d3ee, #0284c7);
+      border: 2px solid #ffffff;
+      color: #04101d;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.85);
+      transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      z-index: 20;
+      touch-action: manipulation;
+    }
+
+    .hotspot-pin::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border-radius: 9999px;
+      border: 1.5px solid rgba(34, 211, 238, 0.65);
+      animation: pinPulse 2.2s infinite ease-out;
+      pointer-events: none;
+    }
+
+    .hotspot-pin:hover, .hotspot-pin.selected {
+      transform: translate(-50%, -50%) scale(1.25);
+      background: radial-gradient(circle at 30% 30%, #f97316, #ea580c);
+      color: #ffffff;
+      box-shadow: 0 0 22px rgba(249, 115, 22, 0.95);
+      z-index: 30;
+    }
+
+    .hotspot-pin.quiz-target {
+      background: radial-gradient(circle at 30% 30%, #a855f7, #7e22ce);
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.9);
+    }
+
+    .hotspot-pin.occluded {
+      opacity: 0.28;
+      transform: translate(-50%, -50%) scale(0.85);
+    }
+
+    @keyframes pinPulse {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      100% { transform: scale(1.65); opacity: 0; }
+    }
+
+    /* Virtual String Pluck Vibration Animation */
+    @keyframes stringVibrate {
+      0%, 100% { transform: translateY(0px); }
+      20% { transform: translateY(-2.5px); }
+      40% { transform: translateY(2.5px); }
+      60% { transform: translateY(-1.5px); }
+      80% { transform: translateY(1.5px); }
+    }
+    .string-plucked {
+      animation: stringVibrate 0.22s linear 3;
+      box-shadow: 0 0 14px #22d3ee !important;
+    }
+
+    /* Range Slider Styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(15, 23, 42, 0.85);
+      height: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.25);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #22d3ee;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
+    }
+
+    /* Subtle cyber grid background */
+    .cyber-grid-bg {
+      background-image: 
+        radial-gradient(circle at 50% 45%, rgba(14, 165, 233, 0.14) 0%, rgba(6, 13, 23, 0.96) 68%),
+        linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 36px 36px, 36px 36px;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased cyber-grid-bg overflow-hidden relative">
+
+  <!-- 3D WEBGL VIEWPORT FULLSCREEN LAYER -->
+  <div id="webgl-container" class="fixed inset-0 w-screen h-screen z-0 cursor-grab active:cursor-grabbing"></div>
+
+  <!-- 3D-TO-2D HOTSPOT PINS OVERLAY LAYER -->
+  <div id="pins-layer" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- FLOATING 3D PIN TOOLTIP -->
+  <div id="pin-tooltip" class="fixed hidden z-30 w-72 sm:w-80 holo-panel rounded-2xl p-4 pointer-events-auto transition-all duration-200 border border-cyan-400/50 shadow-2xl">
+    <div class="flex items-start justify-between gap-2 mb-2">
+      <div>
+        <span id="tooltip-badge" class="inline-block px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 mb-1">PIN #01</span>
+        <h4 id="tooltip-title" class="font-display font-bold text-base text-white leading-tight">Body (Badan Gitar)</h4>
+        <p id="tooltip-en" class="text-xs font-mono text-purple-300">Guitar Body / Resonant Chamber</p>
+      </div>
+      <button id="close-tooltip-btn" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition" aria-label="Tutup Tooltip">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div class="space-y-2 text-xs text-slate-200 border-t border-cyan-500/20 pt-2.5">
+      <div>
+        <span class="text-cyan-400 font-semibold block text-[11px] uppercase tracking-wider">Fungsi Utama:</span>
+        <p id="tooltip-func" class="text-slate-300 leading-relaxed mt-0.5">-</p>
+      </div>
+      <div>
+        <span class="text-orange-400 font-semibold block text-[11px] uppercase tracking-wider">Cara Kerja:</span>
+        <p id="tooltip-work" class="text-slate-300 leading-relaxed mt-0.5">-</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP HEADER BAR (LEFT & RIGHT) -->
+  <header class="fixed top-0 left-0 right-0 z-20 p-2.5 sm:p-3.5 pointer-events-none flex flex-col lg:flex-row items-stretch lg:items-start justify-between gap-2.5">
+    
+    <!-- Header Kiri Atas -->
+    <div class="holo-panel rounded-2xl px-3.5 py-2.5 pointer-events-auto flex flex-wrap items-center justify-between lg:justify-start gap-3 max-w-full lg:max-w-2xl">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-purple-600/30 border border-cyan-400/50 flex items-center justify-center shadow-lg shrink-0">
+          <i data-lucide="guitar" class="w-5 h-5 text-cyan-300"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold tracking-wider uppercase rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">MUSEUM MUSIK 3D</span>
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold tracking-wider uppercase rounded-md bg-purple-500/20 text-purple-300 border border-purple-400/40">3D INTERAKTIF</span>
+            <span id="progress-badge" class="px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md bg-orange-500/20 text-orange-300 border border-orange-400/40">Eksplorasi: 1/12</span>
+          </div>
+          <h1 class="font-display font-bold text-sm sm:text-base md:text-lg tracking-tight text-white leading-tight">
+            LABORATORIUM VIRTUAL GITAR ELEKTRIK 3D
+          </h1>
+          <p class="text-[11px] text-slate-300/90 hidden sm:block">
+            Eksplorasi Anatomi, Elektronika, dan Teknologi Instrumen Musik
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons (Panduan & Achievement) -->
+      <div class="flex items-center gap-1.5 ml-auto lg:ml-2">
+        <button id="btn-open-guide" class="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-xs font-medium flex items-center gap-1.5 transition" title="Panduan Penggunaan">
+          <i data-lucide="help-circle" class="w-4 h-4 text-cyan-400"></i>
+          <span class="hidden md:inline">Panduan</span>
+        </button>
+        <button id="btn-open-achievements" class="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/30 border border-purple-400/40 text-purple-200 text-xs font-medium flex items-center gap-1.5 transition relative" title="Pencapaian Belajar">
+          <i data-lucide="award" class="w-4 h-4 text-purple-400"></i>
+          <span class="hidden md:inline">Lencana</span>
+          <span id="achievement-count" class="px-1.5 py-0.2 text-[10px] font-mono bg-orange-500 text-white rounded-full">1</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Header Kanan Atas: Status Instrumen Aktif, Konfigurasi Pickup & Tuning -->
+    <div class="holo-panel rounded-2xl px-3 py-2 pointer-events-auto grid grid-cols-3 gap-2 sm:gap-3 text-left">
+      <!-- Instrumen Aktif -->
+      <div class="bg-slate-900/60 border border-cyan-500/20 rounded-xl px-2.5 py-1.5">
+        <div class="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-cyan-400">
+          <i data-lucide="layers" class="w-3 h-3"></i>
+          <span class="truncate">INSTRUMEN AKTIF</span>
+        </div>
+        <select id="guitar-model-select" class="w-full bg-transparent text-white font-display font-semibold text-xs sm:text-sm focus:outline-none cursor-pointer mt-0.5">
+          <option value="strat" class="bg-slate-900 text-white">Stratocaster-Style</option>
+          <option value="lespaul" class="bg-slate-900 text-white">Les Paul-Style</option>
+          <option value="tele" class="bg-slate-900 text-white">Telecaster-Style</option>
+          <option value="superstrat" class="bg-slate-900 text-white">Superstrat-Style</option>
+        </select>
+        <div id="guitar-construction-label" class="text-[10px] text-slate-400 truncate">Bolt-On • Alder Body</div>
+      </div>
+
+      <!-- Konfigurasi Pickup -->
+      <div class="bg-slate-900/60 border border-purple-500/25 rounded-xl px-2.5 py-1.5">
+        <div class="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-purple-400">
+          <i data-lucide="magnet" class="w-3 h-3"></i>
+          <span class="truncate">KONFIGURASI PICKUP</span>
+        </div>
+        <div id="header-pickup-config" class="font-display font-semibold text-xs sm:text-sm text-white mt-0.5 truncate">
+          SSS (3 Single Coil)
+        </div>
+        <div id="header-pickup-active" class="text-[10px] text-purple-300 truncate">Aktif: Single Coil</div>
+      </div>
+
+      <!-- Tuning Aktif -->
+      <div class="bg-slate-900/60 border border-orange-500/25 rounded-xl px-2.5 py-1.5">
+        <div class="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-orange-400">
+          <i data-lucide="music" class="w-3 h-3"></i>
+          <span class="truncate">TUNING AKTIF</span>
+        </div>
+        <select id="header-tuning-select" class="w-full bg-transparent text-white font-display font-semibold text-xs sm:text-sm focus:outline-none cursor-pointer mt-0.5">
+          <option value="standard" class="bg-slate-900 text-white">Standard (E-A-D-G-B-E)</option>
+          <option value="dropd" class="bg-slate-900 text-white">Drop D (D-A-D-G-B-E)</option>
+          <option value="halfstep" class="bg-slate-900 text-white">Eb Standard (Half Down)</option>
+          <option value="openg" class="bg-slate-900 text-white">Open G (D-G-D-G-B-D)</option>
+        </select>
+        <div id="header-tuning-notes" class="text-[10px] font-mono text-orange-300 truncate">E2 A2 D3 G3 B3 E4</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MOBILE/SMARTBOARD SIDEBAR TOGGLE BUTTONS -->
+  <div class="fixed left-3 top-28 sm:top-24 z-20 flex gap-2 lg:hidden">
+    <button id="toggle-left-sidebar" class="holo-panel px-3 py-2 rounded-xl text-xs font-semibold text-cyan-300 flex items-center gap-1.5 border border-cyan-400/40 shadow-lg">
+      <i data-lucide="list-tree" class="w-4 h-4"></i> Komponen
+    </button>
+    <button id="toggle-right-sidebar" class="holo-panel px-3 py-2 rounded-xl text-xs font-semibold text-purple-300 flex items-center gap-1.5 border border-purple-400/40 shadow-lg">
+      <i data-lucide="book-open" class="w-4 h-4"></i> Detail & Lab
+    </button>
+  </div>
+
+  <!-- SIDEBAR KIRI: KATALOG GITAR & KOMPONEN 3D -->
+  <aside id="left-sidebar" class="fixed left-2.5 sm:left-3.5 top-36 sm:top-24 bottom-20 w-72 sm:w-80 holo-panel rounded-2xl z-20 flex flex-col overflow-hidden transition-transform duration-300 -translate-x-[115%] lg:translate-x-0">
+    <!-- Header Katalog -->
+    <div class="p-3 border-b border-cyan-500/20">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+          <h2 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">Katalog Komponen 3D</h2>
+        </div>
+        <button id="close-left-sidebar" class="lg:hidden p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Input Pencarian Cepat -->
+      <div class="relative mb-2">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-cyan-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+        <input id="component-search" type="text" placeholder="Cari komponen / istilah teknis..." class="w-full bg-slate-950/70 border border-cyan-500/30 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400" />
+      </div>
+
+      <!-- Filter Kategori -->
+      <div id="category-filters" class="flex flex-wrap gap-1">
+        <button data-cat="all" class="cat-btn active px-2 py-1 rounded-lg text-[10px] font-semibold bg-cyan-500/25 text-cyan-200 border border-cyan-400/50 transition">Semua</button>
+        <button data-cat="Body & Neck" class="cat-btn px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-900/60 text-slate-300 border border-slate-700 hover:border-cyan-400/40 transition">Body & Neck</button>
+        <button data-cat="Hardware" class="cat-btn px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-900/60 text-slate-300 border border-slate-700 hover:border-cyan-400/40 transition">Hardware</button>
+        <button data-cat="Elektronika" class="cat-btn px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-900/60 text-slate-300 border border-slate-700 hover:border-cyan-400/40 transition">Elektronika</button>
+        <button data-cat="Pickup & Senar" class="cat-btn px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-900/60 text-slate-300 border border-slate-700 hover:border-cyan-400/40 transition">Pickup & Senar</button>
+      </div>
+    </div>
+
+    <!-- Daftar Kartu Komponen -->
+    <div id="component-list" class="flex-1 overflow-y-auto p-2.5 space-y-2">
+      <!-- Diisi secara dinamis oleh JavaScript -->
+    </div>
+  </aside>
+
+  <!-- SIDEBAR KANAN: PANEL DETAIL & PEMBELAJARAN -->
+  <aside id="right-sidebar" class="fixed right-2.5 sm:right-3.5 top-36 sm:top-24 bottom-20 w-80 sm:w-96 holo-panel rounded-2xl z-20 flex flex-col overflow-hidden transition-transform duration-300 translate-x-[115%] lg:translate-x-0">
+    <!-- Header Komponen Aktif -->
+    <div class="p-3.5 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-950/40 to-purple-950/30">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <div class="flex items-center gap-1.5 mb-1">
+            <span id="detail-pin-badge" class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-cyan-500/25 text-cyan-300 border border-cyan-400/40">PIN #01</span>
+            <span id="detail-category-badge" class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30">Body & Neck</span>
+          </div>
+          <h2 id="detail-title" class="font-display font-bold text-base sm:text-lg text-white leading-tight">Body (Badan Gitar)</h2>
+          <p id="detail-intl-term" class="text-xs font-mono text-cyan-300/90 mt-0.5">Electric Guitar Solid Body</p>
+        </div>
+        <button id="close-right-sidebar" class="lg:hidden p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 4 Tab Navigasi Pembelajaran -->
+      <div class="grid grid-cols-4 gap-1 mt-3 bg-slate-950/70 p-1 rounded-xl border border-cyan-500/20">
+        <button data-tab="struktur" class="right-tab-btn active py-1.5 px-1 rounded-lg text-[11px] font-semibold bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 transition text-center">Struktur</button>
+        <button data-tab="elektronika" class="right-tab-btn py-1.5 px-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition text-center">Elektronika</button>
+        <button data-tab="perawatan" class="right-tab-btn py-1.5 px-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition text-center">Perawatan</button>
+        <button data-tab="kuis" class="right-tab-btn py-1.5 px-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition text-center flex items-center justify-center gap-1">
+          <span>Kuis 3D</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Konten Dinamis Tab Sidebar Kanan -->
+    <div id="right-tab-content" class="flex-1 overflow-y-auto p-3.5 space-y-3.5 text-xs sm:text-sm">
+      <!-- Konten diisi dinamis berdasarkan tab aktif -->
+    </div>
+  </aside>
+
+  <!-- LABORATORIUM AUDIO INTERAKTIF (DRAWER / PANEL TERAPUNG) -->
+  <section id="audio-lab-panel" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 w-[95vw] max-w-4xl holo-panel rounded-2xl p-3.5 sm:p-4 border border-cyan-400/50 shadow-2xl hidden transition-all duration-300">
+    <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-cyan-500/25">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center">
+          <i data-lucide="volume-2" class="w-4 h-4 text-orange-400"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+            LABORATORIUM AUDIO & EFEK GITAR (WEB AUDIO API)
+            <span id="audio-status-dot" class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          </h3>
+          <p class="text-[11px] text-slate-300">Klik atau geser senar virtual untuk memetik secara real-time</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-strum-all" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg transition">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i> Genjreng (Strum)
+        </button>
+        <button id="btn-close-audio" class="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300">
+          <i data-lucide="chevron-down" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+      <!-- Kolom 1: Virtual Guitar Strings (6 Senar Interaktif) -->
+      <div class="lg:col-span-5 bg-slate-950/75 rounded-xl p-3 border border-cyan-500/20 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">Virtual Fretboard Strings</span>
+          <span id="audio-tuning-label" class="text-[10px] font-mono text-orange-300">Standard E</span>
+        </div>
+        <div id="virtual-strings-container" class="space-y-2 my-auto">
+          <!-- 6 tombol senar di-render JS -->
+        </div>
+      </div>
+
+      <!-- Kolom 2: Pickup Selector & Effect Processor -->
+      <div class="lg:col-span-4 bg-slate-950/75 rounded-xl p-3 border border-purple-500/20 space-y-3">
+        <!-- Pickup Character -->
+        <div>
+          <label class="text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold block mb-1.5">Karakter Pickup</label>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button data-pickup-type="single" class="pickup-mode-btn active py-1.5 px-2 rounded-lg text-xs font-semibold bg-cyan-500/25 text-cyan-200 border border-cyan-400/50 transition">Single Coil (Bright)</button>
+            <button data-pickup-type="humbucker" class="pickup-mode-btn py-1.5 px-2 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-700 hover:border-purple-400/50 transition">Humbucker (Thick)</button>
+          </div>
+        </div>
+
+        <!-- Effect Processor -->
+        <div>
+          <label class="text-[11px] font-mono uppercase tracking-wider text-orange-300 font-semibold block mb-1.5">Effect Processor Pedalboard</label>
+          <div class="grid grid-cols-4 gap-1" id="effect-buttons-grid">
+            <button data-fx="clean" class="fx-btn active py-1.5 px-1 rounded-lg text-[11px] font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50">Clean</button>
+            <button data-fx="overdrive" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700">Overdrive</button>
+            <button data-fx="distortion" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700">Distortion</button>
+            <button data-fx="fuzz" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700">Fuzz</button>
+            <button data-fx="chorus" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700">Chorus</button>
+            <button data-fx="delay" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700">Delay</button>
+            <button data-fx="reverb" class="fx-btn py-1.5 px-1 rounded-lg text-[11px] font-medium bg-slate-900 text-slate-300 border border-slate-700 col-span-2">Hall Reverb</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kolom 3: Amplifier Simulator (Gain, Bass, Middle, Treble, Master) -->
+      <div class="lg:col-span-3 bg-slate-950/75 rounded-xl p-3 border border-orange-500/20 space-y-2">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-orange-400 font-semibold block">Amplifier Preamp & EQ</span>
+        <div class="space-y-1.5 text-[11px]">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-300 w-12">Gain</span>
+            <input id="amp-gain" type="range" min="1" max="10" step="0.5" value="3" class="flex-1">
+            <span id="val-gain" class="font-mono text-cyan-300 w-6 text-right">3.0</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-300 w-12">Bass</span>
+            <input id="amp-bass" type="range" min="-12" max="12" step="1" value="2" class="flex-1">
+            <span id="val-bass" class="font-mono text-cyan-300 w-6 text-right">+2</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-300 w-12">Middle</span>
+            <input id="amp-mid" type="range" min="-12" max="12" step="1" value="0" class="flex-1">
+            <span id="val-mid" class="font-mono text-cyan-300 w-6 text-right">0</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-300 w-12">Treble</span>
+            <input id="amp-treble" type="range" min="-12" max="12" step="1" value="3" class="flex-1">
+            <span id="val-treble" class="font-mono text-cyan-300 w-6 text-right">+3</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-300 w-12">Master</span>
+            <input id="amp-master" type="range" min="0" max="1" step="0.05" value="0.7" class="flex-1">
+            <span id="val-master" class="font-mono text-orange-300 w-6 text-right">70%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOOLBAR KONTROL BAWAH (FLOATING DOCK) -->
+  <nav aria-label="Kontrol Visualisasi 3D" class="fixed bottom-2.5 left-1/2 -translate-x-1/2 z-20 max-w-[98vw]">
+    <div class="holo-panel rounded-2xl px-2.5 py-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto shadow-2xl border border-cyan-400/40">
+      
+      <!-- Exploded View -->
+      <button id="dock-exploded" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Pisahkan Komponen Gitar (Exploded View)">
+        <i data-lucide="expand" class="w-4 h-4 text-cyan-400"></i>
+        <span class="hidden sm:inline">Exploded</span>
+      </button>
+
+      <!-- Potongan 3D (Section Cut) -->
+      <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-700 rounded-xl px-2 py-1.5 shrink-0">
+        <i data-lucide="scissors" class="w-4 h-4 text-purple-400"></i>
+        <select id="dock-clip-mode" class="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer" title="Potongan Penampang 3D">
+          <option value="none" class="bg-slate-900">Potongan: Off</option>
+          <option value="horizontal" class="bg-slate-900">Horizontal</option>
+          <option value="vertical" class="bg-slate-900">Vertikal</option>
+          <option value="cross" class="bg-slate-900">Melintang</option>
+        </select>
+        <input id="dock-clip-slider" type="range" min="-2.5" max="2.5" step="0.05" value="0" class="w-16 sm:w-20 hidden" title="Geser Bidang Potong">
+      </div>
+
+      <!-- X-Ray Mode -->
+      <button id="dock-xray" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Mode X-Ray Holografik">
+        <i data-lucide="scan" class="w-4 h-4 text-cyan-400"></i>
+        <span class="hidden sm:inline">X-Ray</span>
+      </button>
+
+      <!-- Wireframe -->
+      <button id="dock-wireframe" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-purple-500/20 border border-slate-700 hover:border-purple-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Tampilan Wireframe Mesh">
+        <i data-lucide="box" class="w-4 h-4 text-purple-400"></i>
+        <span class="hidden md:inline">Wireframe</span>
+      </button>
+
+      <!-- Pin Hotspot Toggle -->
+      <button id="dock-pins" class="dock-btn active px-2.5 py-2 rounded-xl bg-cyan-500/25 border border-cyan-400 text-cyan-200 flex items-center gap-1.5 text-xs font-semibold shrink-0 transition" title="Tampilkan/Sembunyikan Pin Informasi">
+        <i data-lucide="map-pin" class="w-4 h-4 text-cyan-300"></i>
+        <span class="hidden md:inline">Pin</span>
+      </button>
+
+      <!-- Putar Otomatis -->
+      <button id="dock-autorotate" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Putar Gitar 360° Otomatis">
+        <i data-lucide="rotate-3d" class="w-4 h-4 text-cyan-400"></i>
+        <span class="hidden lg:inline">Putar 360°</span>
+      </button>
+
+      <!-- Simulasi Getaran Senar -->
+      <button id="dock-vibrate" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-orange-500/20 border border-slate-700 hover:border-orange-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Simulasi Getaran Senar">
+        <i data-lucide="activity" class="w-4 h-4 text-orange-400"></i>
+        <span class="hidden lg:inline">Getaran</span>
+      </button>
+
+      <!-- Simulasi Aliran Elektronika -->
+      <button id="dock-signal" class="dock-btn px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-purple-500/20 border border-slate-700 hover:border-purple-400 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Visualisasi Aliran Sinyal Listrik">
+        <i data-lucide="zap" class="w-4 h-4 text-purple-400"></i>
+        <span class="hidden lg:inline">Sinyal</span>
+      </button>
+
+      <!-- Laboratorium Audio Toggle -->
+      <button id="dock-audiolab" class="dock-btn px-3 py-2 rounded-xl bg-gradient-to-r from-orange-500/25 to-amber-500/25 hover:from-orange-500/40 hover:to-amber-500/40 border border-orange-400/60 text-orange-200 flex items-center gap-1.5 text-xs font-bold shrink-0 transition" title="Buka Laboratorium Audio Gitar">
+        <i data-lucide="sliders" class="w-4 h-4 text-orange-400"></i>
+        <span>Audio Lab</span>
+      </button>
+
+      <!-- Reset Kamera -->
+      <button id="dock-reset" class="px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center gap-1.5 text-xs font-medium shrink-0 transition" title="Reset Posisi Kamera">
+        <i data-lucide="refresh-ccw" class="w-4 h-4 text-slate-300"></i>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODAL PANDUAN CEPAT PENGGUNAAN (AWAL BUKA) -->
+  <div id="guide-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="holo-panel rounded-3xl max-w-xl w-full p-5 sm:p-6 border border-cyan-400/50 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-6 h-6 text-cyan-300"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-400">Selamat Datang di</span>
+            <h2 class="font-display font-bold text-lg sm:text-xl text-white">Laboratorium Virtual Gitar Elektrik 3D</h2>
+          </div>
+        </div>
+        <button id="close-guide-x" class="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-200 mb-5">
+        <div class="bg-slate-900/70 p-3 rounded-2xl border border-cyan-500/20 flex items-start gap-2.5">
+          <i data-lucide="hand" class="w-5 h-5 text-cyan-400 shrink-0 mt-0.5"></i>
+          <div>
+            <h4 class="font-bold text-white mb-0.5">Navigasi Sentuh & Mouse 3D</h4>
+            <p class="text-slate-300">Gunakan <strong>1 jari / klik kiri</strong> untuk memutar gitar 360°, <strong>2 jari / scroll</strong> untuk zoom & geser (pan) di Smartboard maupun laptop.</p>
+          </div>
+        </div>
+        <div class="bg-slate-900/70 p-3 rounded-2xl border border-purple-500/20 flex items-start gap-2.5">
+          <i data-lucide="map-pin" class="w-5 h-5 text-purple-400 shrink-0 mt-0.5"></i>
+          <div>
+            <h4 class="font-bold text-white mb-0.5">Pin Hotspot & Exploded View</h4>
+            <p class="text-slate-300">Klik pin angka <strong>1–12</strong> pada model gitar untuk melihat fungsi & cara kerja, atau aktifkan <strong>Exploded View & X-Ray</strong> di dock bawah.</p>
+          </div>
+        </div>
+        <div class="bg-slate-900/70 p-3 rounded-2xl border border-orange-500/20 flex items-start gap-2.5">
+          <i data-lucide="volume-2" class="w-5 h-5 text-orange-400 shrink-0 mt-0.5"></i>
+          <div>
+            <h4 class="font-bold text-white mb-0.5">Simulasi Audio & Efek Gitar</h4>
+            <p class="text-slate-300">Buka <strong>Audio Lab</strong> untuk memetik 6 senar virtual, mengubah Single Coil vs Humbucker, serta menguji efek Overdrive, Distortion, hingga Reverb.</p>
+          </div>
+        </div>
+        <div class="bg-slate-900/70 p-3 rounded-2xl border border-emerald-500/20 flex items-start gap-2.5">
+          <i data-lucide="trophy" class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5"></i>
+          <div>
+            <h4 class="font-bold text-white mb-0.5">Kuis Identifikasi 3D</h4>
+            <p class="text-slate-300">Uji pemahamanmu pada tab <strong>Kuis 3D</strong> di panel kanan dengan mengklik langsung bagian gitar yang ditanyakan!</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-start-lab" class="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-slate-950 font-display font-bold text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition">
+        MULAI EKSPLORASI LABORATORIUM 3D
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL PENCAPAIAN (ACHIEVEMENTS) -->
+  <div id="achievements-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="holo-panel rounded-3xl max-w-md w-full p-5 border border-purple-400/50 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="award" class="w-6 h-6 text-purple-400"></i>
+          <h3 class="font-display font-bold text-base text-white">Lencana Pencapaian Siswa</h3>
+        </div>
+        <button id="close-achievements-btn" class="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="achievements-list" class="space-y-2.5 text-xs">
+        <!-- Diisi oleh JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION / MESSAGE BOX (PENGGANTI ALERT) -->
+  <div id="lab-toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 hidden holo-panel px-4 py-2.5 rounded-2xl border border-cyan-400/60 shadow-2xl flex items-center gap-2.5 text-xs font-medium text-white">
+    <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+    <span id="lab-toast-msg">Notifikasi sistem</span>
+  </div>
+
+  <!-- APPLICATION SCRIPT (ES6+ MODULAR ARCHITECTURE) -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* =========================================================================
+       * 1. BASIS DATA EDUKASI & SPESIFIKASI KOMPONEN GITAR ELEKTRIK
+       * ========================================================================= */
+      const GUITAR_COMPONENTS = [
+        {
+          id: 'body',
+          pin: 1,
+          name: 'Body (Badan Gitar)',
+          intlTerm: 'Solid / Chambered Guitar Body',
+          category: 'Body & Neck',
+          shortDesc: 'Struktur utama penopang seluruh perangkat keras, elektronik, dan resonansi akustik.',
+          func: 'Menopang jembatan senar (bridge), pickup, sistem sirkuit elektronik, serta memengaruhi sustain dan karakter resonansi frekuensi dasar.',
+          work: 'Kayu padat (solid wood) meredam feedback akustik pada volume tinggi sambil mempertahankan getaran senar agar ditangkap oleh pickup elektromagnetik.',
+          materials: 'Alder, Swamp Ash, Mahogany, Basswood, dengan lapisan top Maple (Flamed/Quilted).',
+          metrics: [
+            { label: 'Material Utama', value: 'Alder / Mahogany' },
+            { label: 'Ketebalan Standar', value: '40 – 45 mm' },
+            { label: 'Tipe Konstruksi', value: 'Solid Body Contoured' },
+            { label: 'Finishing', value: 'Polyurethane Gloss' }
+          ],
+          pinDetail: 'Titik #1 berada di area lower bout body yang menyimpan rongga kontrol (control cavity) dan menopang resonansi utama.',
+          cameraOffset: { pos: [0.3, 0.2, 4.2], target: [0, -0.7, 0] }
+        },
+        {
+          id: 'neck',
+          pin: 2,
+          name: 'Neck (Leher Gitar)',
+          intlTerm: 'Guitar Neck & Truss Rod Assembly',
+          category: 'Body & Neck',
+          shortDesc: 'Batang kayu panjang tempat tangan kiri menekan senar, dilengkapi truss rod baja di dalamnya.',
+          func: 'Menahan tarikan total senar baja (sekitar 40–55 kg) sekaligus menjadi landasan fretboard yang presisi.',
+          work: 'Di dalam neck tertanam batang baja pengatur kelengkungan (truss rod) yang melawan gaya tarik senar agar kelurusan neck tetap stabil.',
+          materials: 'Hard Maple, Roasted Maple, Mahogany, dengan batang baja Dual-Action Truss Rod.',
+          metrics: [
+            { label: 'Material Neck', value: 'Canadian Hard Maple' },
+            { label: 'Profil Kontur', value: 'Modern C / Slim Taper' },
+            { label: 'Sambungan', value: 'Bolt-On / Set-Neck' },
+            { label: 'Panjang Skala', value: '25.5" (648 mm)' }
+          ],
+          pinDetail: 'Titik #2 menunjuk bagian tengah profil belakang neck tempat ibu jari bertumpu dan jalur truss rod berada.',
+          cameraOffset: { pos: [-1.4, 0.8, 3.2], target: [0, 0.85, 0] }
+        },
+        {
+          id: 'headstock',
+          pin: 3,
+          name: 'Headstock (Kepala Gitar)',
+          intlTerm: 'Guitar Headstock & String Tree',
+          category: 'Body & Neck',
+          shortDesc: 'Ujung atas neck tempat terpasangnya tuning machine dan pengatur sudut tekan senar.',
+          func: 'Menjadi dudukan mekanisme pemutar senar (tuning machines) dan memberikan sudut tekuk (break angle) senar setelah melewati nut.',
+          work: 'Desain headstock sejajar (6-in-line) menggunakan string tree untuk menekan senar, sedangkan desain miring (angled 14°–17°) menciptakan tekanan alami pada nut.',
+          materials: 'Kayu menyatu dengan neck (Maple/Mahogany) dengan pelat penutup truss rod.',
+          metrics: [
+            { label: 'Konfigurasi', value: '6-in-Line / 3+3' },
+            { label: 'Sudut Kemiringan', value: '0° (Flat) / 14° Angled' },
+            { label: 'Akses Truss Rod', value: 'Headstock Nut Slot' },
+            { label: 'Ketebalan', value: '14 – 15 mm' }
+          ],
+          pinDetail: 'Titik #3 menandai area headstock dan akses mur pengatur truss rod.',
+          cameraOffset: { pos: [0.8, 2.3, 2.6], target: [0, 2.25, 0] }
+        },
+        {
+          id: 'fretboard',
+          pin: 4,
+          name: 'Fretboard (Papan Fret)',
+          intlTerm: 'Fingerboard / Fretboard',
+          category: 'Body & Neck',
+          shortDesc: 'Lapisan kayu keras beradius di permukaan depan neck sebagai bidang tekan jari.',
+          func: 'Menyediakan permukaan halus yang presisi untuk menekan senar pada posisi nada tertentu, dilengkapi penanda posisi (inlay).',
+          work: 'Memiliki kelengkungan melintang (fretboard radius, misal 9.5" atau 12") agar jari nyaman membentuk akor maupun melakukan teknik bending.',
+          materials: 'Rosewood (Sonokeling), Ebony (Kayu Hitam), atau Maple.',
+          metrics: [
+            { label: 'Material Papan', value: 'Indian Rosewood' },
+            { label: 'Radius Lengkungan', value: '9.5" – 12" (241–305 mm)' },
+            { label: 'Jumlah Fret', value: '22 / 24 Medium Jumbo' },
+            { label: 'Penanda Posisi', value: 'Pearloid Dot / Trapezoid' }
+          ],
+          pinDetail: 'Titik #4 berada di fret ke-12 (oktaf) pada permukaan fretboard yang ditandai dua titik inlay.',
+          cameraOffset: { pos: [0.6, 0.9, 2.5], target: [0, 0.9, 0.1] }
+        },
+        {
+          id: 'fret',
+          pin: 5,
+          name: 'Fret (Bilah Logam)',
+          intlTerm: 'Fretwire (Nickel-Silver / Stainless)',
+          category: 'Body & Neck',
+          shortDesc: 'Kawat logam melintang di sepanjang fretboard yang membagi panjang getar senar secara kromatis.',
+          func: 'Mengubah tinggi nada (frekuensi) dengan cara memperpendek panjang gelombang senar yang bergetar saat ditekan.',
+          work: 'Berdasarkan hukum Mersenne, memperpendek panjang senar menjadi setengahnya (fret ke-12) menggandakan frekuensi getaran sehingga nada naik 1 oktaf.',
+          materials: 'Paduan Nikel-Perak (18% Nickel-Silver) atau Baja Tahan Karat (Stainless Steel).',
+          metrics: [
+            { label: 'Material Kawat', value: 'Nickel-Silver / Stainless' },
+            { label: 'Profil Ukuran', value: 'Medium Jumbo' },
+            { label: 'Rasio Jarak', value: 'Aturan 17.817 (Kromatis)' },
+            { label: 'Tinggi Mahkota', value: '1.15 – 1.40 mm' }
+          ],
+          pinDetail: 'Titik #5 menunjuk bilah kawat fret logam presisi yang tertanam pada slot fretboard.',
+          cameraOffset: { pos: [-0.8, 0.5, 2.1], target: [0, 0.45, 0.1] }
+        },
+        {
+          id: 'pickup',
+          pin: 6,
+          name: 'Pickup (Penangkap Getaran)',
+          intlTerm: 'Electromagnetic Guitar Pickup',
+          category: 'Pickup & Senar',
+          shortDesc: 'Transduser elektromagnetik yang mengubah getaran mekanis senar baja menjadi sinyal listrik AC.',
+          func: 'Menangkap energi kinetik getaran senar logam dan mengonversinya menjadi tegangan listrik bolak-balik (mV) untuk dikirim ke amplifier.',
+          work: 'Menggunakan prinsip Induksi Elektromagnetik Faraday: magnet permanen memagnetisasi senar baja; saat senar bergetar, fluks magnet berubah dan menginduksi arus listrik pada ribuan lilitan kawat tembaga.',
+          materials: 'Magnet Alnico II/V atau Ceramic, lilitan kawat tembaga AWG 42/43 (6.000–10.000 lilitan).',
+          metrics: [
+            { label: 'Jenis Konfigurasi', value: 'Single Coil / Humbucker' },
+            { label: 'Prinsip Kerja', value: 'Induksi Elektromagnetik' },
+            { label: 'Material Magnet', value: 'Alnico V / Ceramic' },
+            { label: 'Impedansi Output', value: '6 kΩ – 16 kΩ' }
+          ],
+          pinDetail: 'Titik #6 menyorot kutub magnet (pole pieces) pickup yang berada tepat di bawah ke-6 senar.',
+          cameraOffset: { pos: [0.3, -0.35, 2.3], target: [0, -0.45, 0.15] }
+        },
+        {
+          id: 'bridge',
+          pin: 7,
+          name: 'Bridge (Jembatan Senar)',
+          intlTerm: 'Guitar Bridge & Saddles',
+          category: 'Hardware',
+          shortDesc: 'Penjangkar ujung bawah senar pada body yang mengatur ketinggian (action) dan intonasi nada.',
+          func: 'Menahan tegangan senar di ujung body, menyalurkan getaran ke kayu, serta menyediakan penyetelan action dan panjang skala (intonasi).',
+          work: 'Setiap senar bertumpu pada saddle individual yang dapat digeser maju-mundur untuk menyamakan nada fret ke-12 dengan harmonik alami (intonasi) dan dinaik-turunkan (string action).',
+          materials: 'Baja (Steel), Kuningan (Brass), atau Zinc Die-Cast berlapis krom/nikel.',
+          metrics: [
+            { label: 'Tipe Sistem', value: 'Synchronized Tremolo / Fixed' },
+            { label: 'Material Saddle', value: 'Bent Steel / Brass' },
+            { label: 'Pengaturan', value: 'Action & Intonasi 6-Saddle' },
+            { label: 'Jarak Senar', value: '52.5 mm (E ke E)' }
+          ],
+          pinDetail: 'Titik #7 menunjuk unit bridge dan 6 saddle penyetel intonasi di bagian bawah body.',
+          cameraOffset: { pos: [-0.4, -0.85, 2.2], target: [0, -0.9, 0.15] }
+        },
+        {
+          id: 'tuner',
+          pin: 8,
+          name: 'Tuning Machine (Penyetem)',
+          intlTerm: 'Machine Heads / Tuning Pegs',
+          category: 'Hardware',
+          shortDesc: 'Mekanisme roda gigi cacing pada headstock untuk mengatur tegangan dan frekuensi dasar senar.',
+          func: 'Mengencangkan atau mengendurkan lilitan senar agar mencapai frekuensi nada standar yang presisi.',
+          work: 'Menggunakan sistem worm gear (roda gigi cacing) satu arah dengan rasio 14:1 hingga 18:1 sehingga putaran halus tidak berbalik akibat tarikan kuat senar.',
+          materials: 'Zinc Alloy / Baja berlapis krom dengan gear internal kuningan terlumasi.',
+          metrics: [
+            { label: 'Rasio Gigi', value: '16:1 / 18:1 Presisi' },
+            { label: 'Mekanisme', value: 'Sealed Worm Gear' },
+            { label: 'Tipe Pengunci', value: 'Standard / Locking Tuner' },
+            { label: 'Finishing', value: 'Chrome / Satin Nickel' }
+          ],
+          pinDetail: 'Titik #8 berada pada deretan tuning peg di sisi headstock.',
+          cameraOffset: { pos: [-1.1, 2.35, 2.3], target: [-0.2, 2.3, 0] }
+        },
+        {
+          id: 'nut',
+          pin: 9,
+          name: 'Nut (Penyangga Senar)',
+          intlTerm: 'Guitar String Nut',
+          category: 'Hardware',
+          shortDesc: 'Bantalan beralur di perbatasan headstock dan fretboard yang menjadi titik tumpu atas senar.',
+          func: 'Menjaga jarak antar senar secara presisi, menentukan tinggi senar pada fret pertama, dan menjadi batas awal panjang skala getar senar.',
+          work: 'Enam alur kecil (slots) memandu senar dari tuning machine menuju fretboard dengan gesekan minimal agar senar tidak tersangkut saat di-tuning.',
+          materials: 'Tulang sapi (Bone), GraphTech TUSQ (sintetis pelumas diri), Kuningan, atau Grafit.',
+          metrics: [
+            { label: 'Material Ideal', value: 'Natural Bone / GraphTech' },
+            { label: 'Lebar Standar', value: '42 – 43 mm' },
+            { label: 'Fungsi Akustik', value: 'Batas Atas Panjang Skala' },
+            { label: 'Presisi Alur', value: 'Disesuaikan Gauge Senar' }
+          ],
+          pinDetail: 'Titik #9 menandai posisi nut tepat di ujung atas fretboard sebelum headstock.',
+          cameraOffset: { pos: [0.5, 1.85, 2.0], target: [0, 1.85, 0.1] }
+        },
+        {
+          id: 'knobs',
+          pin: 10,
+          name: 'Volume & Tone Knob',
+          intlTerm: 'Potentiometers (Volume & Tone Controls)',
+          category: 'Elektronika',
+          shortDesc: 'Kenop pemutar potensiometer untuk mengendalikan kuat sinyal output dan filter frekuensi tinggi.',
+          func: 'Knob Volume mengatur amplitudo sinyal ke amplifier; Knob Tone memotong frekuensi tinggi (treble) menggunakan kapasitor untuk suara lebih hangat.',
+          work: 'Potensiometer adalah resistor variabel (250kΩ untuk Single Coil, 500kΩ untuk Humbucker). Pada sirkuit Tone, kapasitor (0.022µF–0.047µF) menyalurkan frekuensi treble ke ground.',
+          materials: 'Potensiometer karbon/konduktif, Kapasitor Film/Ceramic, dengan kenop plastik ABS atau logam knurled.',
+          metrics: [
+            { label: 'Nilai Resistansi', value: '250kΩ (SC) / 500kΩ (HB)' },
+            { label: 'Kurva Taper', value: 'Audio / Logarithmic (A)' },
+            { label: 'Kapasitor Tone', value: '0.022 µF / 0.047 µF' },
+            { label: 'Fungsi Filter', value: 'RC Low-Pass Filter' }
+          ],
+          pinDetail: 'Titik #10 menunjuk deretan kenop kontrol Volume dan Tone di area bawah pickguard.',
+          cameraOffset: { pos: [0.8, -1.0, 2.2], target: [0.35, -0.95, 0.15] }
+        },
+        {
+          id: 'switch',
+          pin: 11,
+          name: 'Pickup Selector Switch',
+          intlTerm: 'Multi-Way Pickup Selector Switch',
+          category: 'Elektronika',
+          shortDesc: 'Sakelar pemilih sumber pickup aktif (Neck, Middle, Bridge, atau kombinasi paralel/seri).',
+          func: 'Memungkinkan pemain memilih karakter warna suara (timbre) dari pickup posisi neck yang hangat hingga bridge yang tajam.',
+          work: 'Menghubungkan jalur sinyal dari satu atau dua pickup sekaligus menuju potensiometer Volume. Pada posisi 2 & 4 (5-way switch), dua single coil terhubung paralel menghasilkan efek hum-cancelling.',
+          materials: 'Kontak tembaga berlapis perak/emas dengan tuas baja dan ujung plastik.',
+          metrics: [
+            { label: 'Tipe Sakelar', value: '5-Way Blade / 3-Way Toggle' },
+            { label: 'Kombinasi Suara', value: '5 Karakter Timbre Unik' },
+            { label: 'Efek Posisi 2 & 4', value: 'Out-of-Phase Quack / Hum-Cancel' },
+            { label: 'Ketahanan Kontak', value: '> 50.000 Siklus' }
+          ],
+          pinDetail: 'Titik #11 menunjuk sakelar pemilih pickup pada pickguard/body.',
+          cameraOffset: { pos: [0.9, -1.2, 2.1], target: [0.45, -1.15, 0.15] }
+        },
+        {
+          id: 'jack',
+          pin: 12,
+          name: 'Output Jack',
+          intlTerm: '1/4-inch (6.35 mm) TS Mono Output Jack',
+          category: 'Elektronika',
+          shortDesc: 'Soket konektor akhir tempat kabel instrumen 6.35 mm terhubung menuju efek atau amplifier.',
+          func: 'Mengirimkan sinyal audio analog berimpedansi tinggi (Hi-Z) dan menghubungkan referensi ground gitar ke amplifier.',
+          work: 'Konektor TS (Tip-Sleeve) 6.35 mm: bagian Tip membawa sinyal positif (+) dari potensiometer Volume, sedangkan Sleeve terhubung ke seluruh sistem grounding & shielding gitar.',
+          materials: 'Kuningan berlapis nikel dengan pelat dudukan logam (Jack Plate).',
+          metrics: [
+            { label: 'Standar Konektor', value: '1/4" (6.35 mm) Mono TS' },
+            { label: 'Impedansi Jalur', value: 'High-Z (Instrument Level)' },
+            { label: 'Koneksi Pin', value: 'Tip (+Signal) / Sleeve (GND)' },
+            { label: 'Sistem Shielding', value: 'Faraday Cage Grounded' }
+          ],
+          pinDetail: 'Titik #12 menunjuk pelat output jack tempat kabel gitar ditancapkan.',
+          cameraOffset: { pos: [1.1, -1.3, 2.3], target: [0.55, -1.25, 0.1] }
+        }
+      ];
+
+      /* =========================================================================
+       * 2. DATA MODEL GITAR (4 VARIASI DESAIN OTENTIK)
+       * ========================================================================= */
+      const GUITAR_MODELS = {
+        strat: {
+          name: 'Stratocaster-Style',
+          construction: 'Bolt-On • Alder Body • 22 Fret',
+          pickupConfig: 'SSS (3 Single Coil)',
+          bodyColor: 0x0ea5e9, // Metallic Electric Blue
+          pickguardColor: 0xf8fafc,
+          fretboardColor: 0x3b2314, // Rosewood
+          headstockType: '6-inline-strat',
+          pickupLayout: 'SSS',
+          bridgeType: 'tremolo',
+          knobCount: 3,
+          switchType: 'blade'
+        },
+        lespaul: {
+          name: 'Les Paul-Style',
+          construction: 'Set-Neck • Mahogany + Maple Top',
+          pickupConfig: 'HH (2 Humbucker)',
+          bodyColor: 0xd97706, // Honey Sunburst Amber
+          pickguardColor: 0xfef3c7,
+          fretboardColor: 0x2a180d, // Dark Rosewood
+          headstockType: '3+3-angled',
+          pickupLayout: 'HH',
+          bridgeType: 'tuneomatic',
+          knobCount: 4,
+          switchType: 'toggle'
+        },
+        tele: {
+          name: 'Telecaster-Style',
+          construction: 'Bolt-On • Swamp Ash • Maple Neck',
+          pickupConfig: 'SS (2 Single Coil)',
+          bodyColor: 0xf59e0b, // Butterscotch Blonde
+          pickguardColor: 0x111827, // Black Pickguard
+          fretboardColor: 0xd4a373, // Maple Fretboard
+          headstockType: '6-inline-tele',
+          pickupLayout: 'SS',
+          bridgeType: 'ashtray',
+          knobCount: 2,
+          switchType: 'blade'
+        },
+        superstrat: {
+          name: 'Superstrat-Style',
+          construction: 'Neck-Thru • Basswood • 24 Fret',
+          pickupConfig: 'HSH (Humbucker-Single-Humbucker)',
+          bodyColor: 0x7e22ce, // Deep Cyber Purple
+          pickguardColor: 0x0f172a, // Dark Carbon
+          fretboardColor: 0x18181b, // Ebony
+          headstockType: '6-inline-pointed',
+          pickupLayout: 'HSH',
+          bridgeType: 'floyd',
+          knobCount: 2,
+          switchType: 'blade'
+        }
+      };
+
+      /* =========================================================================
+       * 3. DATA TUNING & FREKUENSI SENAR (Hz)
+       * ========================================================================= */
+      const TUNINGS = {
+        standard: {
+          name: 'Standard E',
+          label: 'E2 A2 D3 G3 B3 E4',
+          strings: [
+            { num: 6, note: 'E2', freq: 82.41, gauge: '0.046"' },
+            { num: 5, note: 'A2', freq: 110.00, gauge: '0.036"' },
+            { num: 4, note: 'D3', freq: 146.83, gauge: '0.026"' },
+            { num: 3, note: 'G3', freq: 196.00, gauge: '0.017"' },
+            { num: 2, note: 'B3', freq: 246.94, gauge: '0.013"' },
+            { num: 1, note: 'E4', freq: 329.63, gauge: '0.010"' }
+          ]
+        },
+        dropd: {
+          name: 'Drop D',
+          label: 'D2 A2 D3 G3 B3 E4',
+          strings: [
+            { num: 6, note: 'D2', freq: 73.42, gauge: '0.046"' },
+            { num: 5, note: 'A2', freq: 110.00, gauge: '0.036"' },
+            { num: 4, note: 'D3', freq: 146.83, gauge: '0.026"' },
+            { num: 3, note: 'G3', freq: 196.00, gauge: '0.017"' },
+            { num: 2, note: 'B3', freq: 246.94, gauge: '0.013"' },
+            { num: 1, note: 'E4', freq: 329.63, gauge: '0.010"' }
+          ]
+        },
+        halfstep: {
+          name: 'Eb Standard (Half Down)',
+          label: 'Eb2 Ab2 Db3 Gb3 Bb3 Eb4',
+          strings: [
+            { num: 6, note: 'Eb2', freq: 77.78, gauge: '0.046"' },
+            { num: 5, note: 'Ab2', freq: 103.83, gauge: '0.036"' },
+            { num: 4, note: 'Db3', freq: 138.59, gauge: '0.026"' },
+            { num: 3, note: 'Gb3', freq: 185.00, gauge: '0.017"' },
+            { num: 2, note: 'Bb3', freq: 233.08, gauge: '0.013"' },
+            { num: 1, note: 'Eb4', freq: 311.13, gauge: '0.010"' }
+          ]
+        },
+        openg: {
+          name: 'Open G',
+          label: 'D2 G2 D3 G3 B3 D4',
+          strings: [
+            { num: 6, note: 'D2', freq: 73.42, gauge: '0.046"' },
+            { num: 5, note: 'G2', freq: 98.00, gauge: '0.036"' },
+            { num: 4, note: 'D3', freq: 146.83, gauge: '0.026"' },
+            { num: 3, note: 'G3', freq: 196.00, gauge: '0.017"' },
+            { num: 2, note: 'B3', freq: 246.94, gauge: '0.013"' },
+            { num: 1, note: 'D4', freq: 293.66, gauge: '0.010"' }
+          ]
+        }
+      };
+
+      /* =========================================================================
+       * 4. BANK SOAL KUIS 3D INTERAKTIF (BERDASARKAN LEVEL KESULITAN)
+       * ========================================================================= */
+      const QUIZ_QUESTIONS = {
+        pemula: [
+          {
+            q: 'Klik bagian gitar yang berfungsi mengubah getaran mekanis senar menjadi sinyal listrik!',
+            answerId: 'pickup',
+            explanation: 'Tepat! Pickup bekerja berdasarkan prinsip induksi elektromagnetik untuk menangkap getaran senar baja.'
+          },
+          {
+            q: 'Temukan komponen tempat pemain memutar tuas roda gigi untuk menyetel tinggi-rendah nada senar!',
+            answerId: 'tuner',
+            explanation: 'Benar! Tuning Machine menggunakan sistem worm-gear untuk mengatur tegangan masing-masing senar.'
+          },
+          {
+            q: 'Klik bagian badan utama gitar yang menopang seluruh komponen hardware dan sirkuit elektronik!',
+            answerId: 'body',
+            explanation: 'Hebat! Body gitar elektrik menopang bridge, pickup, dan rongga sirkuit elektronik.'
+          },
+          {
+            q: 'Identifikasi kenop yang digunakan untuk mengatur besar kecilnya sinyal Volume dan Tone!',
+            answerId: 'knobs',
+            explanation: 'Tepat sekali! Potensiometer Volume mengatur amplitudo sinyal, sedangkan Tone menyaring frekuensi tinggi.'
+          },
+          {
+            q: 'Klik soket tempat kabel gitar 6.35 mm ditancapkan menuju amplifier!',
+            answerId: 'jack',
+            explanation: 'Sempurna! Output Jack 1/4" (6.35 mm) menyalurkan sinyal audio menuju amplifier.'
+          }
+        ],
+        menengah: [
+          {
+            q: 'Klik bilah logam melintang yang berfungsi memendekkan panjang getar senar agar nada naik secara kromatis!',
+            answerId: 'fret',
+            explanation: 'Benar! Fret membagi panjang getar senar berdasarkan rasio matematis 17.817 untuk tiap setengah nada.'
+          },
+          {
+            q: 'Temukan komponen di ujung bawah body yang memiliki saddle untuk mengatur intonasi dan action senar!',
+            answerId: 'bridge',
+            explanation: 'Tepat! Bridge & Saddle menyalurkan getaran dan memungkinkan kalibrasi intonasi fret ke-12.'
+          },
+          {
+            q: 'Klik bantalan beralur di perbatasan headstock dan fretboard yang menjadi batas atas panjang skala senar!',
+            answerId: 'nut',
+            explanation: 'Benar! Nut menjaga jarak antar senar dan menentukan ketinggian senar pada posisi open string.'
+          },
+          {
+            q: 'Identifikasi sakelar yang digunakan untuk berpindah antara karakter suara pickup Neck, Middle, dan Bridge!',
+            answerId: 'switch',
+            explanation: 'Tepat! Pickup Selector Switch memilih jalur pickup aktif untuk menghasilkan warna suara berbeda.'
+          },
+          {
+            q: 'Klik papan kayu melengkung (radius) yang ditempeli bilah fret dan penanda posisi inlay!',
+            answerId: 'fretboard',
+            explanation: 'Hebat! Fretboard (papan fret) menjadi permukaan bidang tekan jari pemain.'
+          }
+        ],
+        ahli: [
+          {
+            q: 'Komponen manakah yang di dalamnya tertanam batang baja Dual-Action Truss Rod untuk melawan gaya tarik senar ±50 kg?',
+            answerId: 'neck',
+            explanation: 'Analisis tepat! Neck menyimpan truss rod baja di bagian dalam untuk menjaga kelurusan relief.'
+          },
+          {
+            q: 'Komponen manakah yang menentukan sudut tekuk senar (break angle) setelah melewati nut dan menampung 6 tuner?',
+            answerId: 'headstock',
+            explanation: 'Luar biasa! Desain Headstock (6-in-line atau angled 3+3) menentukan sudut tekanan senar pada nut.'
+          },
+          {
+            q: 'Bagian sirkuit manakah yang bekerja bersama kapasitor 0.022µF membentuk rangkaian RC Low-Pass Filter?',
+            answerId: 'knobs',
+            explanation: 'Brilian! Potensiometer Tone dan kapasitor membentuk filter RC yang membuang frekuensi treble ke ground.'
+          },
+          {
+            q: 'Transduser manakah yang pada konfigurasi Humbucker menggunakan dua kumparan berlawanan polaritas untuk menghilangkan dengung 50/60Hz?',
+            answerId: 'pickup',
+            explanation: 'Sangat tepat! Humbucker membatalkan interferensi elektromagnetik (hum) melalui dua kumparan fase berlawanan.'
+          },
+          {
+            q: 'Konektor TS manakah yang menghubungkan Tip (+Signal) dan Sleeve (Faraday Shielding Ground) ke input Hi-Z amplifier?',
+            answerId: 'jack',
+            explanation: 'Sempurna! Output Jack TS 6.35 mm melengkapi rangkaian sinyal dan sistem grounding gitar.'
+          }
+        ]
+      };
+
+      /* =========================================================================
+       * 5. STATE APLIKASI TERPUSAT
+       * ========================================================================= */
+      const state = {
+        activeModel: 'strat',
+        activeComponentId: 'body',
+        activeCategory: 'all',
+        searchQuery: '',
+        activeRightTab: 'struktur',
+        activeTuning: 'standard',
+        pickupMode: 'single', // 'single' | 'humbucker'
+        activeEffect: 'clean',
+        // 3D Visualization Toggles
+        isExploded: false,
+        explodeProgress: 0,
+        clipMode: 'none',
+        clipValue: 0,
+        isXray: false,
+        isWireframe: false,
+        showPins: true,
+        autoRotate: false,
+        isVibrating: false,
+        showSignalFlow: false,
+        audioLabOpen: false,
+        // Camera Smooth Interpolation
+        camTargetPos: new THREE.Vector3(0.4, 0.3, 4.8),
+        camLookAt: new THREE.Vector3(0, 0.25, 0),
+        camAnimating: false,
+        // Learning & Gamification Progress
+        exploredSet: new Set(['body']),
+        achievements: {
+          firstLook: { title: 'Penjelajah Pertama', desc: 'Membuka Laboratorium Virtual Gitar Elektrik 3D', unlocked: true },
+          anatomist: { title: 'Ahli Anatomi Gitar', desc: 'Mengeksplorasi minimal 6 komponen gitar berbeda', unlocked: false },
+          xrayMaster: { title: 'Inspektur Sirkuit X-Ray', desc: 'Mengaktifkan mode X-Ray atau Exploded View', unlocked: false },
+          soundEngineer: { title: 'Teknisi Audio Gitar', desc: 'Memainkan senar virtual & mencoba efek audio', unlocked: false },
+          quizChampion: { title: 'Master Kuis 3D', desc: 'Menjawab benar 3 soal berturut-turut di Kuis 3D', unlocked: false }
+        },
+        // Quiz State
+        quizLevel: 'pemula',
+        quizIndex: 0,
+        quizScore: 0,
+        quizStreak: 0,
+        quizAnswered: false,
+        quizFinished: false
+      };
+
+      /* =========================================================================
+       * 6. WEB AUDIO API: SYNTHESIZER & EFFECT PROCESSOR GITAR ELEKTRIK
+       * ========================================================================= */
+      class ElectricGuitarAudioEngine {
+        constructor() {
+          this.ctx = null;
+          this.masterGain = null;
+          this.bassFilter = null;
+          this.midFilter = null;
+          this.trebleFilter = null;
+          this.waveShaper = null;
+          this.delayNode = null;
+          this.delayFeedback = null;
+          this.reverbNode = null;
+          this.reverbGain = null;
+          this.dryGain = null;
+          this.isSupported = !!(window.AudioContext || window.webkitAudioContext);
+        }
+
+        init() {
+          if (!this.isSupported) return false;
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioCtx();
+
+            // Master Output
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.7;
+
+            // 3-Band Guitar Amplifier EQ
+            this.bassFilter = this.ctx.createBiquadFilter();
+            this.bassFilter.type = 'lowshelf';
+            this.bassFilter.frequency.value = 140;
+            this.bassFilter.gain.value = 2;
+
+            this.midFilter = this.ctx.createBiquadFilter();
+            this.midFilter.type = 'peaking';
+            this.midFilter.frequency.value = 750;
+            this.midFilter.Q.value = 1.1;
+            this.midFilter.gain.value = 0;
+
+            this.trebleFilter = this.ctx.createBiquadFilter();
+            this.trebleFilter.type = 'highshelf';
+            this.trebleFilter.frequency.value = 2800;
+            this.trebleFilter.gain.value = 3;
+
+            // Distortion / Overdrive WaveShaper
+            this.waveShaper = this.ctx.createWaveShaper();
+            this.waveShaper.oversample = '4x';
+            this.updateDriveCurve('clean', 3);
+
+            // Delay Effect Loop
+            this.delayNode = this.ctx.createDelay(1.0);
+            this.delayNode.delayTime.value = 0.32;
+            this.delayFeedback = this.ctx.createGain();
+            this.delayFeedback.gain.value = 0.0;
+            this.delayNode.connect(this.delayFeedback);
+            this.delayFeedback.connect(this.delayNode);
+
+            // Algorithmic Impulse Response Reverb
+            this.reverbNode = this.ctx.createConvolver();
+            this.reverbNode.buffer = this.createImpulseResponse(2.2, 2.5);
+            this.reverbGain = this.ctx.createGain();
+            this.reverbGain.gain.value = 0.08;
+
+            // Routing Chain: WaveShaper -> Bass -> Mid -> Treble -> [Dry + Delay + Reverb] -> Master -> Destination
+            this.waveShaper.connect(this.bassFilter);
+            this.bassFilter.connect(this.midFilter);
+            this.midFilter.connect(this.trebleFilter);
+
+            this.trebleFilter.connect(this.masterGain);
+            this.trebleFilter.connect(this.delayNode);
+            this.delayNode.connect(this.masterGain);
+
+            this.trebleFilter.connect(this.reverbNode);
+            this.reverbNode.connect(this.reverbGain);
+            this.reverbGain.connect(this.masterGain);
+
+            this.masterGain.connect(this.ctx.destination);
+          }
+
+          if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+          return true;
+        }
+
+        createImpulseResponse(duration, decay) {
+          const rate = this.ctx.sampleRate;
+          const length = rate * duration;
+          const impulse = this.ctx.createBuffer(2, length, rate);
+          for (let ch = 0; ch < 2; ch++) {
+            const channelData = impulse.getChannelData(ch);
+            for (let i = 0; i < length; i++) {
+              channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+            }
+          }
+          return impulse;
+        }
+
+        updateDriveCurve(fxMode, gainVal) {
+          if (!this.waveShaper) return;
+          const samples = 44100;
+          const curve = new Float32Array(samples);
+          let amount = 0;
+
+          if (fxMode === 'overdrive') amount = 18 * gainVal;
+          else if (fxMode === 'distortion') amount = 65 * gainVal;
+          else if (fxMode === 'fuzz') amount = 160 * gainVal;
+          else amount = Math.max(0, (gainVal - 4) * 3); // slight tube warmth on clean
+
+          for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            if (amount === 0) {
+              curve[i] = x;
+            } else if (fxMode === 'fuzz') {
+              // Hard asymmetric fuzz clipping
+              const clipped = Math.tanh(x * (amount / 15));
+              curve[i] = clipped > 0.65 ? 0.65 : (clipped < -0.55 ? -0.55 : clipped);
+            } else {
+              const k = amount;
+              curve[i] = ((3 + k) * x * 20 * (Math.PI / 180)) / (Math.PI + k * Math.abs(x));
+            }
+          }
+          this.waveShaper.curve = curve;
+
+          // Update Delay & Reverb wet levels based on selected FX
+          if (this.delayFeedback && this.reverbGain) {
+            this.delayFeedback.gain.value = fxMode === 'delay' ? 0.42 : 0.0;
+            this.reverbGain.gain.value = fxMode === 'reverb' ? 0.55 : 0.1;
+          }
+        }
+
+        pluckString(freq, pickupMode = 'single', fxMode = 'clean') {
+          if (!this.init()) {
+            showToast('Browser Anda tidak mendukung Web Audio API.');
+            return;
+          }
+
+          const now = this.ctx.currentTime;
+          const duration = 2.6;
+
+          // Harmonic String Synthesis (Fundamental + 2nd + 3rd + 4th harmonics + Pick Attack Transient)
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const osc3 = this.ctx.createOscillator();
+
+          osc1.type = 'sawtooth';
+          osc2.type = 'triangle';
+          osc3.type = 'sine';
+
+          osc1.frequency.setValueAtTime(freq, now);
+          osc2.frequency.setValueAtTime(freq * 2, now);
+          osc3.frequency.setValueAtTime(freq * 3, now);
+
+          // Chorus detune effect if active
+          if (fxMode === 'chorus') {
+            osc2.detune.setValueAtTime(14, now);
+            osc3.detune.setValueAtTime(-12, now);
+          } else {
+            osc2.detune.setValueAtTime(2, now);
+          }
+
+          // Pickup Voicing Filter (Single Coil = Bright Glassy Peak @ 3.2kHz; Humbucker = Warm Mid Peak @ 1.4kHz)
+          const pickupFilter = this.ctx.createBiquadFilter();
+          pickupFilter.type = 'lowpass';
+          if (pickupMode === 'single') {
+            pickupFilter.frequency.setValueAtTime(4200, now);
+            pickupFilter.frequency.exponentialRampToValueAtTime(1100, now + duration);
+            pickupFilter.Q.value = 3.2;
+          } else {
+            pickupFilter.frequency.setValueAtTime(2300, now);
+            pickupFilter.frequency.exponentialRampToValueAtTime(680, now + duration);
+            pickupFilter.Q.value = 2.2;
+          }
+
+          // String Amplitude Envelope (Sharp Pick Attack -> Natural Decay)
+          const envGain = this.ctx.createGain();
+          const outputBoost = pickupMode === 'humbucker' ? 0.48 : 0.34;
+          envGain.gain.setValueAtTime(0.001, now);
+          envGain.gain.linearRampToValueAtTime(outputBoost, now + 0.012);
+          envGain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+          // Sub-gains for harmonics
+          const g1 = this.ctx.createGain(); g1.gain.value = 0.65;
+          const g2 = this.ctx.createGain(); g2.gain.value = pickupMode === 'single' ? 0.32 : 0.22;
+          const g3 = this.ctx.createGain(); g3.gain.value = pickupMode === 'single' ? 0.16 : 0.08;
+
+          osc1.connect(g1); g1.connect(pickupFilter);
+          osc2.connect(g2); g2.connect(pickupFilter);
+          osc3.connect(g3); g3.connect(pickupFilter);
+
+          // Pick Attack Click Noise Burst
+          const noiseBuf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.025, this.ctx.sampleRate);
+          const data = noiseBuf.getChannelData(0);
+          for (let i = 0; i < data.length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.005));
+          }
+          const noiseSrc = this.ctx.createBufferSource();
+          noiseSrc.buffer = noiseBuf;
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.value = 0.25;
+          noiseSrc.connect(noiseGain);
+          noiseGain.connect(pickupFilter);
+
+          pickupFilter.connect(envGain);
+          envGain.connect(this.waveShaper);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc3.start(now);
+          noiseSrc.start(now);
+
+          osc1.stop(now + duration);
+          osc2.stop(now + duration);
+          osc3.stop(now + duration);
+        }
+      }
+
+      const audioEngine = new ElectricGuitarAudioEngine();
+
+      /* =========================================================================
+       * 7. THREE.JS 3D PROCEDURAL ELECTRIC GUITAR ENGINE
+       * ========================================================================= */
+      let scene, camera, renderer, controls;
+      let pedestalGroup, guitarRootGroup, customGLBGroup = null;
+      let subGroups = {}; // body, neck, headstock, fretboard, frets, pickups, bridge, tuners, nut, knobs, switch, jack, strings, internalWire
+      let stringMeshes = [];
+      let stringVibrationTimers = [0, 0, 0, 0, 0, 0];
+      let signalPulseParticles = [];
+      let clippingPlanes = [];
+      let pinAnchors = {}; // Map componentId -> THREE.Vector3 (local to guitarRootGroup)
+      let allGuitarMaterials = [];
+      let xrayBodyMaterials = [];
+
+      // Procedural Wood Grain Texture Generator via CanvasTexture
+      function createWoodTexture(baseHex, grainHex, streakDensity = 45) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#' + baseHex.toString(16).padStart(6, '0');
+        ctx.fillRect(0, 0, 512, 512);
+
+        ctx.strokeStyle = '#' + grainHex.toString(16).padStart(6, '0');
+        ctx.globalAlpha = 0.16;
+
+        for (let i = 0; i < streakDensity; i++) {
+          ctx.beginPath();
+          const xStart = (i / streakDensity) * 512;
+          ctx.lineWidth = 1.5 + Math.random() * 3.5;
+          ctx.moveTo(xStart, 0);
+          for (let y = 0; y <= 512; y += 32) {
+            const wave = Math.sin(y * 0.015 + i * 0.6) * 14;
+            ctx.lineTo(xStart + wave, y);
+          }
+          ctx.stroke();
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+
+      // Initialize WebGL Scene, Lighting & Pedestal
+      function initThreeJS() {
+        const container = document.getElementById('webgl-container');
+
+        try {
+          scene = new THREE.Scene();
+          scene.fog = new THREE.FogExp2(0x060d17, 0.045);
+
+          camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+          camera.position.set(0.4, 0.3, 4.8);
+
+          renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = 1.18;
+          renderer.localClippingEnabled = true;
+
+          container.appendChild(renderer.domElement);
+
+          // OrbitControls (Multi-touch Smartboard & Mouse Ready)
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.06;
+          controls.minDistance = 1.4;
+          controls.maxDistance = 9.0;
+          controls.target.set(0, 0.25, 0);
+          controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+          };
+
+          // Cancel programmatic camera lerp when user grabs controls
+          controls.addEventListener('start', () => {
+            state.camAnimating = false;
+          });
+
+          // Studio HDR-Like 4-Point Lighting Setup
+          const ambientLight = new THREE.AmbientLight(0x94a3b8, 0.65);
+          scene.add(ambientLight);
+
+          const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+          keyLight.position.set(3.5, 4.5, 4.0);
+          keyLight.castShadow = true;
+          keyLight.shadow.mapSize.width = 1024;
+          keyLight.shadow.mapSize.height = 1024;
+          scene.add(keyLight);
+
+          // Cyan Rim Light (Left)
+          const cyanRim = new THREE.DirectionalLight(0x22d3ee, 0.95);
+          cyanRim.position.set(-4.5, 1.5, -2.5);
+          scene.add(cyanRim);
+
+          // Purple Rim Light (Right)
+          const purpleRim = new THREE.DirectionalLight(0xa855f7, 0.75);
+          purpleRim.position.set(4.0, -1.5, -3.0);
+          scene.add(purpleRim);
+
+          // Holographic Pedestal Under Guitar
+          buildHolographicPedestal();
+
+          // Build Initial Guitar Model
+          guitarRootGroup = new THREE.Group();
+          scene.add(guitarRootGroup);
+          buildProceduralGuitar(state.activeModel);
+
+          // Create HTML Pin Elements
+          createHotspotPinElements();
+
+          // Resize Listener
+          window.addEventListener('resize', onWindowResize);
+        } catch (err) {
+          console.error('WebGL Initialization Error:', err);
+          container.innerHTML = `
+            <div class="flex items-center justify-center h-full p-6 text-center">
+              <div class="holo-panel p-6 rounded-2xl max-w-md">
+                <h3 class="font-display font-bold text-lg text-orange-400 mb-2">WebGL Tidak Tersedia</h3>
+                <p class="text-xs text-slate-300">Perangkat atau browser Anda belum mengaktifkan akselerasi grafis WebGL 3D. Silakan aktifkan hardware acceleration atau gunakan Chrome/Edge terbaru.</p>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Build Holographic Glowing Platform Pedestal
+      function buildHolographicPedestal() {
+        pedestalGroup = new THREE.Group();
+        pedestalGroup.position.set(0, -1.85, 0);
+
+        // Outer glowing cyan ring
+        const outerRingGeo = new THREE.RingGeometry(1.35, 1.46, 64);
+        const outerRingMat = new THREE.MeshBasicMaterial({
+          color: 0x22d3ee,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.75
+        });
+        const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+        outerRing.rotation.x = -Math.PI / 2;
+        pedestalGroup.add(outerRing);
+
+        // Inner purple dashed-style ring
+        const innerRingGeo = new THREE.RingGeometry(0.95, 1.0, 64);
+        const innerRingMat = new THREE.MeshBasicMaterial({
+          color: 0xa855f7,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.55
+        });
+        const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+        innerRing.rotation.x = -Math.PI / 2;
+        innerRing.position.y = 0.01;
+        pedestalGroup.add(innerRing);
+
+        // Translucent base disc
+        const discGeo = new THREE.CircleGeometry(1.35, 64);
+        const discMat = new THREE.MeshStandardMaterial({
+          color: 0x0a192f,
+          metalness: 0.8,
+          roughness: 0.25,
+          transparent: true,
+          opacity: 0.55
+        });
+        const disc = new THREE.Mesh(discGeo, discMat);
+        disc.rotation.x = -Math.PI / 2;
+        disc.receiveShadow = true;
+        pedestalGroup.add(disc);
+
+        // Pedestal Upward PointLight
+        const pedLight = new THREE.PointLight(0x22d3ee, 1.1, 4.5);
+        pedLight.position.set(0, 0.4, 0);
+        pedestalGroup.add(pedLight);
+
+        scene.add(pedestalGroup);
+      }
+
+      // Dispose previous 3D resources cleanly to prevent memory leaks
+      function clearGuitarGroup(group) {
+        if (!group) return;
+        group.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((m) => {
+                if (m.map) m.map.dispose();
+                m.dispose();
+              });
+            } else {
+              if (obj.material.map) obj.material.map.dispose();
+              obj.material.dispose();
+            }
+          }
+        });
+        while (group.children.length > 0) {
+          group.remove(group.children[0]);
+        }
+      }
+
+      // Generate Anatomical Guitar Body Silhouette Shape per Model Style
+      function createGuitarBodyShape(modelKey) {
+        const s = new THREE.Shape();
+
+        if (modelKey === 'lespaul') {
+          // Single-cutaway Les Paul Silhouette
+          s.moveTo(0, -1.42);
+          s.bezierCurveTo(0.45, -1.42, 0.72, -1.12, 0.68, -0.75);
+          s.bezierCurveTo(0.64, -0.52, 0.44, -0.45, 0.45, -0.28);
+          // Lower Horn Cutaway
+          s.bezierCurveTo(0.46, -0.05, 0.58, 0.06, 0.48, 0.16);
+          s.bezierCurveTo(0.36, 0.24, 0.24, 0.04, 0.16, 0.08);
+          // Neck pocket top
+          s.lineTo(-0.16, 0.08);
+          // Upper rounded bout (no cutaway)
+          s.bezierCurveTo(-0.42, 0.12, -0.54, -0.15, -0.48, -0.42);
+          s.bezierCurveTo(-0.44, -0.58, -0.66, -0.68, -0.68, -0.92);
+          s.bezierCurveTo(-0.70, -1.22, -0.42, -1.42, 0, -1.42);
+        } else if (modelKey === 'tele') {
+          // Single-cutaway Telecaster Slab Silhouette
+          s.moveTo(0, -1.44);
+          s.bezierCurveTo(0.46, -1.44, 0.68, -1.15, 0.64, -0.78);
+          s.bezierCurveTo(0.60, -0.55, 0.46, -0.46, 0.48, -0.26);
+          // Lower Cutaway
+          s.bezierCurveTo(0.50, -0.02, 0.44, 0.14, 0.30, 0.14);
+          s.bezierCurveTo(0.20, 0.14, 0.18, 0.05, 0.14, 0.06);
+          s.lineTo(-0.14, 0.06);
+          // Smooth Tele upper shoulder
+          s.bezierCurveTo(-0.36, 0.06, -0.52, -0.18, -0.48, -0.46);
+          s.bezierCurveTo(-0.45, -0.62, -0.64, -0.72, -0.65, -0.96);
+          s.bezierCurveTo(-0.66, -1.25, -0.42, -1.44, 0, -1.44);
+        } else if (modelKey === 'superstrat') {
+          // Aggressive Sharp Double-Cutaway Superstrat Silhouette
+          s.moveTo(0, -1.42);
+          s.bezierCurveTo(0.42, -1.42, 0.66, -1.14, 0.62, -0.78);
+          s.bezierCurveTo(0.58, -0.55, 0.42, -0.46, 0.44, -0.28);
+          // Sharp Lower Horn
+          s.bezierCurveTo(0.46, -0.06, 0.56, 0.14, 0.44, 0.22);
+          s.bezierCurveTo(0.35, 0.26, 0.24, 0.02, 0.14, 0.04);
+          s.lineTo(-0.14, 0.04);
+          // Long Sharp Upper Horn
+          s.bezierCurveTo(-0.24, 0.02, -0.36, 0.34, -0.47, 0.30);
+          s.bezierCurveTo(-0.56, 0.26, -0.48, -0.15, -0.45, -0.35);
+          s.bezierCurveTo(-0.42, -0.54, -0.64, -0.66, -0.65, -0.92);
+          s.bezierCurveTo(-0.66, -1.22, -0.40, -1.42, 0, -1.42);
+        } else {
+          // Classic Contoured Double-Cutaway Stratocaster Silhouette
+          s.moveTo(0, -1.42);
+          s.bezierCurveTo(0.44, -1.42, 0.67, -1.14, 0.63, -0.78);
+          s.bezierCurveTo(0.59, -0.54, 0.42, -0.45, 0.44, -0.26);
+          // Lower Horn
+          s.bezierCurveTo(0.46, -0.04, 0.54, 0.12, 0.42, 0.18);
+          s.bezierCurveTo(0.33, 0.22, 0.23, 0.02, 0.14, 0.05);
+          s.lineTo(-0.14, 0.05);
+          // Upper Longer Horn
+          s.bezierCurveTo(-0.23, 0.02, -0.34, 0.30, -0.45, 0.26);
+          s.bezierCurveTo(-0.54, 0.22, -0.47, -0.14, -0.44, -0.34);
+          s.bezierCurveTo(-0.41, -0.52, -0.65, -0.64, -0.66, -0.90);
+          s.bezierCurveTo(-0.67, -1.20, -0.42, -1.42, 0, -1.42);
+        }
+        return s;
+      }
+
+      // Build Detailed Composite 3D Electric Guitar
+      function buildProceduralGuitar(modelKey) {
+        if (!guitarRootGroup) return;
+        clearGuitarGroup(guitarRootGroup);
+        if (customGLBGroup) {
+          scene.remove(customGLBGroup);
+          customGLBGroup = null;
+        }
+
+        const cfg = GUITAR_MODELS[modelKey] || GUITAR_MODELS.strat;
+        allGuitarMaterials = [];
+        xrayBodyMaterials = [];
+        stringMeshes = [];
+        signalPulseParticles = [];
+
+        // Initialize Sub-Groups for Exploded View & Inspection
+        subGroups = {
+          body: new THREE.Group(),
+          pickguard: new THREE.Group(),
+          neck: new THREE.Group(),
+          headstock: new THREE.Group(),
+          fretboard: new THREE.Group(),
+          frets: new THREE.Group(),
+          pickups: new THREE.Group(),
+          bridge: new THREE.Group(),
+          tuners: new THREE.Group(),
+          nut: new THREE.Group(),
+          knobs: new THREE.Group(),
+          switch: new THREE.Group(),
+          jack: new THREE.Group(),
+          strings: new THREE.Group(),
+          electronics: new THREE.Group()
+        };
+
+        Object.values(subGroups).forEach((g) => guitarRootGroup.add(g));
+
+        // Shared Metallic & Hardware Materials
+        const chromeMat = new THREE.MeshStandardMaterial({
+          color: 0xe2e8f0,
+          metalness: 0.92,
+          roughness: 0.16,
+          clippingPlanes
+        });
+        const darkMetalMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          metalness: 0.85,
+          roughness: 0.28,
+          clippingPlanes
+        });
+        const goldBrassMat = new THREE.MeshStandardMaterial({
+          color: 0xfbbf24,
+          metalness: 0.88,
+          roughness: 0.22,
+          clippingPlanes
+        });
+        allGuitarMaterials.push(chromeMat, darkMetalMat, goldBrassMat);
+
+        // 1. BODY (ExtrudeGeometry with Anatomical Bevel + Wood Grain Texture)
+        const woodTex = createWoodTexture(cfg.bodyColor, 0x090d16, 40);
+        const bodyMat = new THREE.MeshPhysicalMaterial({
+          color: cfg.bodyColor,
+          map: woodTex,
+          metalness: 0.18,
+          roughness: 0.22,
+          clearcoat: 0.9,
+          clearcoatRoughness: 0.12,
+          clippingPlanes,
+          side: THREE.DoubleSide
+        });
+        allGuitarMaterials.push(bodyMat);
+        xrayBodyMaterials.push(bodyMat);
+
+        const bodyShape = createGuitarBodyShape(modelKey);
+        const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+          depth: 0.18,
+          bevelEnabled: true,
+          bevelSegments: 5,
+          steps: 1,
+          bevelSize: 0.032,
+          bevelThickness: 0.028
+        });
+        bodyGeo.center();
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        bodyMesh.position.set(0, -0.68, 0);
+        bodyMesh.castShadow = true;
+        bodyMesh.receiveShadow = true;
+        subGroups.body.add(bodyMesh);
+
+        // Pickguard (Layered 3-Ply Plate)
+        const pgMat = new THREE.MeshStandardMaterial({
+          color: cfg.pickguardColor,
+          roughness: 0.35,
+          metalness: 0.05,
+          clippingPlanes
+        });
+        allGuitarMaterials.push(pgMat);
+        xrayBodyMaterials.push(pgMat);
+
+        const pgShape = new THREE.Shape();
+        pgShape.moveTo(-0.18, 0.02);
+        pgShape.lineTo(0.18, 0.02);
+        pgShape.bezierCurveTo(0.45, -0.12, 0.56, -0.58, 0.48, -0.95);
+        pgShape.bezierCurveTo(0.32, -1.12, -0.15, -1.08, -0.25, -0.78);
+        pgShape.bezierCurveTo(-0.32, -0.45, -0.25, -0.15, -0.18, 0.02);
+
+        const pgGeo = new THREE.ExtrudeGeometry(pgShape, {
+          depth: 0.015,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.004,
+          bevelThickness: 0.004
+        });
+        const pgMesh = new THREE.Mesh(pgGeo, pgMat);
+        pgMesh.position.set(0, -0.05, 0.112);
+        subGroups.pickguard.add(pgMesh);
+
+        // 2. NECK (Tapered Maple Wood Shaft + Internal Truss Rod)
+        const mapleTex = createWoodTexture(0xd8b48a, 0x9c6f44, 30);
+        const neckMat = new THREE.MeshStandardMaterial({
+          color: 0xe0be95,
+          map: mapleTex,
+          roughness: 0.42,
+          metalness: 0.05,
+          clippingPlanes
+        });
+        allGuitarMaterials.push(neckMat);
+        xrayBodyMaterials.push(neckMat);
+
+        const neckShape = new THREE.Shape();
+        neckShape.moveTo(-0.115, 0);
+        neckShape.lineTo(0.115, 0);
+        neckShape.lineTo(0.088, 1.85);
+        neckShape.lineTo(-0.088, 1.85);
+        neckShape.closePath();
+
+        const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
+          depth: 0.075,
+          bevelEnabled: true,
+          bevelSegments: 4,
+          bevelSize: 0.018,
+          bevelThickness: 0.025
+        });
+        const neckMesh = new THREE.Mesh(neckGeo, neckMat);
+        neckMesh.position.set(0, 0.0, 0.01);
+        neckMesh.castShadow = true;
+        subGroups.neck.add(neckMesh);
+
+        // Internal Steel Truss Rod (Visible in X-Ray & Exploded View)
+        const trussGeo = new THREE.CylinderGeometry(0.012, 0.012, 1.78, 12);
+        const trussMat = new THREE.MeshStandardMaterial({
+          color: 0xf97316,
+          emissive: 0x7c2d12,
+          metalness: 0.9,
+          roughness: 0.2,
+          clippingPlanes
+        });
+        const trussMesh = new THREE.Mesh(trussGeo, trussMat);
+        trussMesh.position.set(0, 0.92, 0.055);
+        subGroups.neck.add(trussMesh);
+
+        // 3. HEADSTOCK (Model-Specific Headstock Geometry)
+        const hsShape = new THREE.Shape();
+        if (cfg.headstockType === '3+3-angled') {
+          // Gibson-style symmetrical open-book headstock
+          hsShape.moveTo(-0.09, 0);
+          hsShape.lineTo(0.09, 0);
+          hsShape.lineTo(0.16, 0.48);
+          hsShape.lineTo(0.04, 0.54);
+          hsShape.lineTo(0, 0.51);
+          hsShape.lineTo(-0.04, 0.54);
+          hsShape.lineTo(-0.16, 0.48);
+          hsShape.closePath();
+        } else if (cfg.headstockType === '6-inline-pointed') {
+          // Sharp Pointed Superstrat Headstock
+          hsShape.moveTo(-0.088, 0);
+          hsShape.lineTo(0.088, 0);
+          hsShape.lineTo(0.05, 0.22);
+          hsShape.lineTo(-0.14, 0.64);
+          hsShape.lineTo(-0.17, 0.58);
+          hsShape.lineTo(-0.10, 0.12);
+          hsShape.closePath();
+        } else {
+          // Fender-style 6-in-line Headstock
+          hsShape.moveTo(-0.088, 0);
+          hsShape.lineTo(0.088, 0);
+          hsShape.bezierCurveTo(0.10, 0.12, 0.03, 0.18, 0.03, 0.28);
+          hsShape.bezierCurveTo(0.03, 0.45, -0.02, 0.58, -0.11, 0.58);
+          hsShape.bezierCurveTo(-0.18, 0.58, -0.17, 0.42, -0.13, 0.25);
+          hsShape.lineTo(-0.088, 0);
+        }
+
+        const hsGeo = new THREE.ExtrudeGeometry(hsShape, {
+          depth: 0.055,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.008,
+          bevelThickness: 0.008
+        });
+        const hsMesh = new THREE.Mesh(hsGeo, neckMat);
+        hsMesh.position.set(0, 1.85, 0.015);
+        if (cfg.headstockType === '3+3-angled') {
+          hsMesh.rotation.x = -0.22; // 13 degree backward tilt
+        }
+        hsMesh.castShadow = true;
+        subGroups.headstock.add(hsMesh);
+
+        // 4. FRETBOARD (Rosewood / Maple / Ebony Slab + Inlays)
+        const fbTex = createWoodTexture(cfg.fretboardColor, 0x110a05, 35);
+        const fbMat = new THREE.MeshStandardMaterial({
+          color: cfg.fretboardColor,
+          map: fbTex,
+          roughness: 0.48,
+          metalness: 0.04,
+          clippingPlanes
+        });
+        allGuitarMaterials.push(fbMat);
+
+        const fbShape = new THREE.Shape();
+        fbShape.moveTo(-0.112, 0);
+        fbShape.lineTo(0.112, 0);
+        fbShape.lineTo(0.086, 1.85);
+        fbShape.lineTo(-0.086, 1.85);
+        fbShape.closePath();
+
+        const fbGeo = new THREE.ExtrudeGeometry(fbShape, {
+          depth: 0.022,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.004,
+          bevelThickness: 0.004
+        });
+        const fbMesh = new THREE.Mesh(fbGeo, fbMat);
+        fbMesh.position.set(0, 0.0, 0.095);
+        subGroups.fretboard.add(fbMesh);
+
+        // Fretboard Pearloid Dot Inlays (Frets 3, 5, 7, 9, 12 double, 15, 17, 19, 21)
+        const inlayMat = new THREE.MeshStandardMaterial({
+          color: 0xf1f5f9,
+          emissive: 0x38bdf8,
+          emissiveIntensity: 0.15,
+          roughness: 0.2,
+          clippingPlanes
+        });
+        const fretCount = modelKey === 'superstrat' ? 24 : 22;
+        const scaleLength = 2.75; // Virtual 3D scale length from nut (y=1.85) to bridge (y=-0.90)
+        const nutY = 1.85;
+        const inlayFrets = [3, 5, 7, 9, 12, 15, 17, 19, 21];
+
+        // 5. FRETS (22 or 24 Precision Metallic Fretwires)
+        let prevFretY = nutY;
+        for (let f = 1; f <= fretCount; f++) {
+          const distFromNut = scaleLength * (1 - Math.pow(2, -f / 12));
+          const fretY = nutY - distFromNut;
+          const progress = (nutY - fretY) / 1.85;
+          const fretWidth = 0.172 + progress * 0.052;
+
+          const fretGeo = new THREE.CylinderGeometry(0.0045, 0.0045, fretWidth, 8);
+          const fretMesh = new THREE.Mesh(fretGeo, chromeMat);
+          fretMesh.rotation.z = Math.PI / 2;
+          fretMesh.position.set(0, fretY, 0.121);
+          subGroups.frets.add(fretMesh);
+
+          // Add Pearloid Inlay Dots between frets
+          if (inlayFrets.includes(f)) {
+            const midY = (prevFretY + fretY) / 2;
+            if (f === 12) {
+              [-0.035, 0.035].forEach((ix) => {
+                const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 16), inlayMat);
+                dot.rotation.x = Math.PI / 2;
+                dot.position.set(ix, midY, 0.119);
+                subGroups.fretboard.add(dot);
+              });
+            } else {
+              const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 16), inlayMat);
+              dot.rotation.x = Math.PI / 2;
+              dot.position.set(0, midY, 0.119);
+              subGroups.fretboard.add(dot);
+            }
+          }
+          prevFretY = fretY;
+        }
+
+        // 6. NUT (6-Slotted Bone/TUSQ String Nut)
+        const nutMat = new THREE.MeshStandardMaterial({
+          color: 0xfefce8,
+          roughness: 0.3,
+          clippingPlanes
+        });
+        const nutMesh = new THREE.Mesh(new THREE.BoxGeometry(0.176, 0.024, 0.032), nutMat);
+        nutMesh.position.set(0, nutY + 0.01, 0.116);
+        subGroups.nut.add(nutMesh);
+
+        // 7. TUNING MACHINES (6 Precision Worm-Gear Tuners)
+        for (let i = 0; i < 6; i++) {
+          const tunerUnit = new THREE.Group();
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 12), chromeMat);
+          post.rotation.x = Math.PI / 2;
+
+          const button = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.024, 0.014), chromeMat);
+          button.position.set(-0.035, 0, -0.015);
+          tunerUnit.add(post, button);
+
+          if (cfg.headstockType === '3+3-angled') {
+            const side = i < 3 ? -1 : 1;
+            const row = i % 3;
+            tunerUnit.position.set(side * 0.13, 1.98 + row * 0.15, 0.06);
+            if (side === 1) tunerUnit.rotation.z = Math.PI;
+          } else {
+            tunerUnit.position.set(-0.115 - i * 0.005, 1.96 + i * 0.075, 0.05);
+          }
+          subGroups.tuners.add(tunerUnit);
+        }
+
+        // 8. PICKUPS (Single Coil vs Humbucker with Magnet Pole Pieces)
+        function createPickupMesh(isHumbucker, yPos, angleZ = 0) {
+          const puGroup = new THREE.Group();
+          const width = 0.28;
+          const height = isHumbucker ? 0.135 : 0.065;
+          const depth = 0.042;
+
+          // Mounting Bezel / Ring
+          const bezelMat = isHumbucker ? darkMetalMat : pgMat;
+          const bezel = new THREE.Mesh(new THREE.BoxGeometry(width + 0.04, height + 0.03, 0.016), bezelMat);
+          puGroup.add(bezel);
+
+          // Bobbin / Chrome Cover
+          const coverMat = (modelKey === 'lespaul' && isHumbucker) ? chromeMat : darkMetalMat;
+          const cover = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), coverMat);
+          cover.position.z = 0.014;
+          puGroup.add(cover);
+
+          // 6 or 12 Alnico Pole Pieces
+          const rows = isHumbucker ? [-0.028, 0.028] : [0];
+          rows.forEach((ry) => {
+            for (let s = 0; s < 6; s++) {
+              const sx = -0.095 + s * 0.038;
+              const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 12), chromeMat);
+              pole.rotation.x = Math.PI / 2;
+              pole.position.set(sx, ry, 0.036);
+              puGroup.add(pole);
+            }
+          });
+
+          puGroup.position.set(0, yPos, 0.125);
+          puGroup.rotation.z = angleZ;
+          return puGroup;
+        }
+
+        if (cfg.pickupLayout === 'SSS') {
+          subGroups.pickups.add(createPickupMesh(false, -0.22, 0));
+          subGroups.pickups.add(createPickupMesh(false, -0.46, 0));
+          subGroups.pickups.add(createPickupMesh(false, -0.70, -0.14)); // Slanted Bridge SC
+        } else if (cfg.pickupLayout === 'HH') {
+          subGroups.pickups.add(createPickupMesh(true, -0.24, 0));
+          subGroups.pickups.add(createPickupMesh(true, -0.68, 0));
+        } else if (cfg.pickupLayout === 'SS') {
+          subGroups.pickups.add(createPickupMesh(false, -0.22, 0));
+          subGroups.pickups.add(createPickupMesh(false, -0.70, -0.15));
+        } else if (cfg.pickupLayout === 'HSH') {
+          subGroups.pickups.add(createPickupMesh(true, -0.22, 0));
+          subGroups.pickups.add(createPickupMesh(false, -0.46, 0));
+          subGroups.pickups.add(createPickupMesh(true, -0.70, 0));
+        }
+
+        // 9. BRIDGE & 6 INDIVIDUAL SADDLES (+ Whammy Bar on Tremolo Models)
+        const bridgeY = -0.90;
+        const basePlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.024), chromeMat);
+        basePlate.position.set(0, bridgeY, 0.126);
+        subGroups.bridge.add(basePlate);
+
+        for (let s = 0; s < 6; s++) {
+          const sx = -0.095 + s * 0.038;
+          const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.055, 0.028), s % 2 === 0 ? chromeMat : goldBrassMat);
+          saddle.position.set(sx, bridgeY + 0.015 - (s % 2) * 0.008, 0.142);
+          subGroups.bridge.add(saddle);
+        }
+
+        if (cfg.bridgeType === 'tremolo' || cfg.bridgeType === 'floyd') {
+          // Whammy / Tremolo Arm
+          const armCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0.14, bridgeY - 0.02, 0.145),
+            new THREE.Vector3(0.19, bridgeY - 0.18, 0.19),
+            new THREE.Vector3(0.16, bridgeY - 0.36, 0.21)
+          ]);
+          const armGeo = new THREE.TubeGeometry(armCurve, 16, 0.008, 8, false);
+          const armMesh = new THREE.Mesh(armGeo, chromeMat);
+          subGroups.bridge.add(armMesh);
+        } else if (cfg.bridgeType === 'tuneomatic') {
+          // Stopbar Tailpiece behind Tune-o-Matic
+          const tailpiece = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.045, 0.028), chromeMat);
+          tailpiece.position.set(0, bridgeY - 0.12, 0.13);
+          subGroups.bridge.add(tailpiece);
+        }
+
+        // 10. VOLUME & TONE KNOBS
+        const knobPositions = cfg.knobCount === 4
+          ? [[0.24, -0.92], [0.36, -0.98], [0.22, -1.10], [0.34, -1.16]]
+          : cfg.knobCount === 3
+          ? [[0.25, -0.86], [0.33, -0.98], [0.40, -1.10]]
+          : [[0.28, -0.92], [0.36, -1.06]];
+
+        knobPositions.forEach(([kx, ky], idx) => {
+          const knobGroup = new THREE.Group();
+          const knobBody = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.036, 0.044, 0.045, 20),
+            idx === 0 ? goldBrassMat : darkMetalMat
+          );
+          knobBody.rotation.x = Math.PI / 2;
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.006, 20), chromeMat);
+          cap.rotation.x = Math.PI / 2;
+          cap.position.z = 0.024;
+          knobGroup.add(knobBody, cap);
+          knobGroup.position.set(kx, ky, 0.138);
+          subGroups.knobs.add(knobGroup);
+        });
+
+        // 11. PICKUP SELECTOR SWITCH
+        const switchGroup = new THREE.Group();
+        const switchBase = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.02), chromeMat);
+        const switchLever = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.075, 10), chromeMat);
+        switchLever.position.set(0, 0.01, 0.035);
+        switchLever.rotation.x = 0.35;
+        const switchTip = new THREE.Mesh(new THREE.SphereGeometry(0.016, 12, 12), pgMat);
+        switchTip.position.set(0, 0.022, 0.072);
+        switchGroup.add(switchBase, switchLever, switchTip);
+        switchGroup.position.set(0.39, -1.21, 0.132);
+        switchGroup.rotation.z = -0.35;
+        subGroups.switch.add(switchGroup);
+
+        // 12. OUTPUT JACK PLATE & 1/4" SOCKET
+        const jackGroup = new THREE.Group();
+        const jackPlate = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.13, 0.014), chromeMat);
+        const jackRing = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.025, 16), darkMetalMat);
+        jackRing.rotation.x = Math.PI / 2;
+        jackRing.position.z = 0.012;
+        jackGroup.add(jackPlate, jackRing);
+        jackGroup.position.set(0.54, -1.16, 0.115);
+        jackGroup.rotation.z = -0.45;
+        subGroups.jack.add(jackGroup);
+
+        // 13. SIX METALLIC STRINGS (Proportional Gauges from 6th Low E to 1st High E)
+        const stringMat = new THREE.MeshStandardMaterial({
+          color: 0xf8fafc,
+          metalness: 0.95,
+          roughness: 0.12,
+          emissive: 0x0ea5e9,
+          emissiveIntensity: 0.08,
+          clippingPlanes
+        });
+
+        for (let s = 0; s < 6; s++) {
+          const startX = -0.095 + s * 0.038;
+          const endX = -0.072 + s * 0.0288;
+          const radius = 0.0052 - s * 0.00055; // Thicker 6th string -> Thinner 1st string
+
+          const curve = new THREE.LineCurve3(
+            new THREE.Vector3(startX, bridgeY + 0.015, 0.158),
+            new THREE.Vector3(endX, nutY + 0.01, 0.134)
+          );
+          const sGeo = new THREE.TubeGeometry(curve, 24, radius, 8, false);
+          const sMesh = new THREE.Mesh(sGeo, stringMat.clone());
+          sMesh.userData = { baseX: 0, stringIdx: s };
+          subGroups.strings.add(sMesh);
+          stringMeshes.push(sMesh);
+        }
+
+        // 14. INTERNAL ELECTRONIC WIRING & SIGNAL FLOW PULSES (Visible in X-Ray / Exploded / Signal Mode)
+        const signalPathPoints = [
+          new THREE.Vector3(0, -0.24, 0.04),
+          new THREE.Vector3(0, -0.68, 0.04),
+          new THREE.Vector3(0.26, -0.92, 0.04),
+          new THREE.Vector3(0.39, -1.21, 0.04),
+          new THREE.Vector3(0.54, -1.16, 0.04)
+        ];
+        const wireCurve = new THREE.CatmullRomCurve3(signalPathPoints);
+        const wireGeo = new THREE.TubeGeometry(wireCurve, 32, 0.008, 8, false);
+        const wireMat = new THREE.MeshBasicMaterial({
+          color: 0x22d3ee,
+          transparent: true,
+          opacity: 0.45,
+          clippingPlanes
+        });
+        const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+        subGroups.electronics.add(wireMesh);
+
+        // Glowing Electron Pulses Traveling Along Circuit
+        for (let p = 0; p < 8; p++) {
+          const pulseGeo = new THREE.SphereGeometry(0.022, 10, 10);
+          const pulseMat = new THREE.MeshBasicMaterial({
+            color: p % 2 === 0 ? 0x22d3ee : 0xf97316
+          });
+          const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+          pulse.userData = { curve: wireCurve, offset: p / 8 };
+          pulse.visible = state.showSignalFlow;
+          subGroups.electronics.add(pulse);
+          signalPulseParticles.push(pulse);
+        }
+
+        // Define Accurate 3D Pin Anchors for 3D-to-2D Overlay Projection
+        pinAnchors = {
+          body: new THREE.Vector3(-0.38, -0.98, 0.13),
+          neck: new THREE.Vector3(-0.11, 0.85, 0.06),
+          headstock: new THREE.Vector3(-0.06, 2.28, 0.08),
+          fretboard: new THREE.Vector3(0.04, 0.92, 0.13),
+          fret: new THREE.Vector3(-0.07, 0.48, 0.13),
+          pickup: new THREE.Vector3(0.0, -0.46, 0.16),
+          bridge: new THREE.Vector3(-0.12, -0.90, 0.16),
+          tuner: new THREE.Vector3(-0.15, 2.18, 0.07),
+          nut: new THREE.Vector3(0.0, 1.86, 0.14),
+          knobs: new THREE.Vector3(0.28, -0.94, 0.17),
+          switch: new THREE.Vector3(0.39, -1.21, 0.18),
+          jack: new THREE.Vector3(0.54, -1.16, 0.14)
+        };
+
+        // Re-apply active visualization states
+        applyXrayState();
+        applyWireframeState();
+        applyClippingPlanes();
+      }
+
+      /* =========================================================================
+       * 8. PUBLIC GLTF / GLB LOADER HOOK (SIAP UNTUK MODEL EKSTERNAL)
+       * ========================================================================= */
+      window.loadCustomGLB = function (url) {
+        if (!THREE.GLTFLoader) {
+          showToast('GLTFLoader tidak tersedia.');
+          return;
+        }
+        showToast('Memuat model 3D eksternal (.glb/.gltf)...');
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          url,
+          (gltf) => {
+            clearGuitarGroup(guitarRootGroup);
+            if (customGLBGroup) {
+              scene.remove(customGLBGroup);
+              clearGuitarGroup(customGLBGroup);
+            }
+            customGLBGroup = gltf.scene;
+            // Auto-normalize scale & center
+            const box = new THREE.Box3().setFromObject(customGLBGroup);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            const scale = 3.8 / maxDim;
+            customGLBGroup.scale.setScalar(scale);
+
+            const center = box.getCenter(new THREE.Vector3());
+            customGLBGroup.position.sub(center.multiplyScalar(scale));
+            customGLBGroup.position.y += 0.25;
+
+            scene.add(customGLBGroup);
+            showToast('Model GLB eksternal berhasil dimuat!');
+          },
+          undefined,
+          (err) => {
+            console.error('GLB Load Error:', err);
+            showToast('Gagal memuat file GLB. Kembali ke model prosedural.');
+          }
+        );
+      };
+
+      /* =========================================================================
+       * 9. VISUALIZATION MODES: EXPLODED VIEW, X-RAY, WIREFRAME & CLIPPING
+       * ========================================================================= */
+      function updateExplodedPositions(t) {
+        if (!subGroups.body) return;
+        // Smooth separation along Z (front-back layers) and Y (neck/headstock)
+        subGroups.body.position.z = -0.35 * t;
+        subGroups.electronics.position.z = -0.05 * t;
+        subGroups.pickguard.position.z = 0.25 * t;
+        subGroups.pickups.position.z = 0.48 * t;
+        subGroups.bridge.position.z = 0.42 * t;
+        subGroups.knobs.position.z = 0.55 * t;
+        subGroups.switch.position.z = 0.52 * t;
+        subGroups.jack.position.x = 0.35 * t;
+
+        subGroups.neck.position.y = 0.35 * t;
+        subGroups.fretboard.position.set(0, 0.35 * t, 0.24 * t);
+        subGroups.frets.position.set(0, 0.35 * t, 0.38 * t);
+        subGroups.headstock.position.y = 0.55 * t;
+        subGroups.tuners.position.set(-0.22 * t, 0.55 * t, 0.15 * t);
+        subGroups.nut.position.set(0, 0.42 * t, 0.32 * t);
+        subGroups.strings.position.z = 0.68 * t;
+      }
+
+      function applyXrayState() {
+        xrayBodyMaterials.forEach((mat) => {
+          mat.transparent = state.isXray;
+          mat.opacity = state.isXray ? 0.22 : 1.0;
+          mat.depthWrite = !state.isXray;
+          mat.needsUpdate = true;
+        });
+      }
+
+      function applyWireframeState() {
+        allGuitarMaterials.forEach((mat) => {
+          mat.wireframe = state.isWireframe;
+          mat.needsUpdate = true;
+        });
+      }
+
+      function applyClippingPlanes() {
+        clippingPlanes.length = 0;
+        if (state.clipMode === 'horizontal') {
+          clippingPlanes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), state.clipValue));
+        } else if (state.clipMode === 'vertical') {
+          clippingPlanes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), state.clipValue));
+        } else if (state.clipMode === 'cross') {
+          clippingPlanes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), state.clipValue * 0.15));
+        }
+        allGuitarMaterials.forEach((mat) => {
+          mat.clippingPlanes = clippingPlanes;
+          mat.needsUpdate = true;
+        });
+      }
+
+      /* =========================================================================
+       * 10. 3D-TO-2D HTML HOTSPOT PINS PROJECTION
+       * ========================================================================= */
+      function createHotspotPinElements() {
+        const layer = document.getElementById('pins-layer');
+        layer.innerHTML = '';
+
+        GUITAR_COMPONENTS.forEach((comp) => {
+          const btn = document.createElement('button');
+          btn.className = 'hotspot-pin pointer-events-auto';
+          btn.id = `pin-el-${comp.id}`;
+          btn.textContent = comp.pin;
+          btn.setAttribute('aria-label', `Pin ${comp.pin}: ${comp.name}`);
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handlePinClick(comp.id);
+          });
+
+          layer.appendChild(btn);
+        });
+      }
+
+      function updateHotspotPinsProjection() {
+        const layer = document.getElementById('pins-layer');
+        if (!state.showPins || !camera || !guitarRootGroup) {
+          layer.style.display = 'none';
+          return;
+        }
+        layer.style.display = 'block';
+
+        const tempVec = new THREE.Vector3();
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+
+        GUITAR_COMPONENTS.forEach((comp) => {
+          const el = document.getElementById(`pin-el-${comp.id}`);
+          const localAnchor = pinAnchors[comp.id];
+          if (!el || !localAnchor) return;
+
+          tempVec.copy(localAnchor);
+          // Apply exploded offset approximation so pins follow parts
+          if (state.explodeProgress > 0.01) {
+            const t = state.explodeProgress;
+            if (['neck', 'headstock', 'tuner'].includes(comp.id)) tempVec.y += 0.4 * t;
+            if (['fretboard', 'fret', 'nut'].includes(comp.id)) { tempVec.y += 0.35 * t; tempVec.z += 0.25 * t; }
+            if (['pickup', 'bridge', 'knobs', 'switch'].includes(comp.id)) tempVec.z += 0.45 * t;
+            if (comp.id === 'jack') tempVec.x += 0.35 * t;
+            if (comp.id === 'body') tempVec.z -= 0.35 * t;
+          }
+
+          guitarRootGroup.localToWorld(tempVec);
+
+          // Check if behind camera
+          const toPoint = tempVec.clone().sub(camera.position);
+          if (toPoint.dot(camDir) < 0) {
+            el.style.display = 'none';
+            return;
+          }
+          el.style.display = 'flex';
+
+          // Project 3D to 2D screen space
+          tempVec.project(camera);
+          const x = (tempVec.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-(tempVec.y * 0.5) + 0.5) * window.innerHeight;
+
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+
+          // Highlight active pin or quiz target style
+          el.classList.toggle('selected', comp.id === state.activeComponentId && state.activeRightTab !== 'kuis');
+          el.classList.toggle('quiz-target', state.activeRightTab === 'kuis');
+        });
+      }
+
+      /* =========================================================================
+       * 11. RENDER LOOP (REQUESTANIMATIONFRAME)
+       * ========================================================================= */
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        const elapsed = clock.getElapsedTime();
+
+        // Smooth Exploded View Interpolation
+        const targetExplode = state.isExploded ? 1 : 0;
+        if (Math.abs(state.explodeProgress - targetExplode) > 0.002) {
+          state.explodeProgress += (targetExplode - state.explodeProgress) * Math.min(1, dt * 7);
+          updateExplodedPositions(state.explodeProgress);
+        }
+
+        // Smooth Camera Focus Animation
+        if (state.camAnimating && camera && controls) {
+          camera.position.lerp(state.camTargetPos, Math.min(1, dt * 5));
+          controls.target.lerp(state.camLookAt, Math.min(1, dt * 5));
+          if (camera.position.distanceTo(state.camTargetPos) < 0.03) {
+            state.camAnimating = false;
+          }
+        }
+
+        // Subtle Holographic Floating Hover & Auto Rotate
+        if (guitarRootGroup) {
+          guitarRootGroup.position.y = 0.25 + Math.sin(elapsed * 1.6) * 0.035;
+          if (state.autoRotate) {
+            guitarRootGroup.rotation.y += dt * 0.65;
+          }
+        }
+
+        // Standing Wave String Vibration Animation (Individual & Global)
+        stringMeshes.forEach((mesh, idx) => {
+          const activeTimer = state.isVibrating ? 1.0 : stringVibrationTimers[idx];
+          if (activeTimer > 0) {
+            const amp = 0.012 * activeTimer;
+            const freq = 55 + idx * 14;
+            mesh.position.x = Math.sin(elapsed * freq) * amp;
+            mesh.material.emissiveIntensity = 0.1 + activeTimer * 0.85;
+            if (!state.isVibrating) {
+              stringVibrationTimers[idx] = Math.max(0, stringVibrationTimers[idx] - dt * 0.9);
+            }
+          } else {
+            mesh.position.x = 0;
+            mesh.material.emissiveIntensity = 0.08;
+          }
+        });
+
+        // Electronic Signal Pulse Flow Animation
+        signalPulseParticles.forEach((pulse) => {
+          pulse.visible = state.showSignalFlow;
+          if (state.showSignalFlow) {
+            const t = (elapsed * 0.55 + pulse.userData.offset) % 1;
+            const pos = pulse.userData.curve.getPointAt(t);
+            pulse.position.copy(pos);
+          }
+        });
+
+        if (controls) controls.update();
+        if (renderer && scene && camera) {
+          renderer.render(scene, camera);
+        }
+        updateHotspotPinsProjection();
+      }
+
+      function onWindowResize() {
+        if (!camera || !renderer) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      /* =========================================================================
+       * 12. UI RENDERING & INTERACTION LOGIC
+       * ========================================================================= */
+      function showToast(msg) {
+        const toast = document.getElementById('lab-toast');
+        const msgEl = document.getElementById('lab-toast-msg');
+        msgEl.textContent = msg;
+        toast.classList.remove('hidden');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => toast.classList.add('hidden'), 3200);
+      }
+
+      function unlockAchievement(key) {
+        const ach = state.achievements[key];
+        if (ach && !ach.unlocked) {
+          ach.unlocked = true;
+          const count = Object.values(state.achievements).filter((a) => a.unlocked).length;
+          document.getElementById('achievement-count').textContent = count;
+          showToast(`🏆 Lencana Terbuka: ${ach.title}!`);
+        }
+      }
+
+      // Render Left Sidebar Component Catalog
+      function renderComponentList() {
+        const container = document.getElementById('component-list');
+        const query = state.searchQuery.toLowerCase().trim();
+
+        const filtered = GUITAR_COMPONENTS.filter((c) => {
+          const matchCat = state.activeCategory === 'all' || c.category === state.activeCategory;
+          const matchText =
+            !query ||
+            c.name.toLowerCase().includes(query) ||
+            c.intlTerm.toLowerCase().includes(query) ||
+            c.shortDesc.toLowerCase().includes(query);
+          return matchCat && matchText;
+        });
+
+        if (filtered.length === 0) {
+          container.innerHTML = `<div class="text-center py-8 text-xs text-slate-400">Komponen tidak ditemukan. Coba kata kunci lain.</div>`;
+          return;
+        }
+
+        container.innerHTML = filtered
+          .map((comp) => {
+            const isActive = comp.id === state.activeComponentId;
+            const isExplored = state.exploredSet.has(comp.id);
+            return `
+              <button data-comp-id="${comp.id}" class="comp-card holo-card ${isActive ? 'active' : ''} w-full text-left p-2.5 rounded-xl block">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${isActive ? 'bg-orange-500 text-white' : 'bg-cyan-500/20 text-cyan-300'}">PIN #${String(comp.pin).padStart(2, '0')}</span>
+                  <span class="text-[10px] text-slate-400 font-medium">${comp.category}</span>
+                </div>
+                <div class="flex items-center justify-between gap-1">
+                  <h3 class="font-display font-bold text-xs sm:text-sm text-white truncate">${comp.name}</h3>
+                  ${isExplored ? '<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i>' : ''}
+                </div>
+                <p class="text-[11px] text-slate-300/90 line-clamp-2 mt-1 leading-snug">${comp.shortDesc}</p>
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-700/60 text-[10px] font-mono text-cyan-300">
+                  <span>${comp.intlTerm.split('/')[0]}</span>
+                  <span>1 Pin Aktif</span>
+                </div>
+              </button>
+            `;
+          })
+          .join('');
+
+        lucide.createIcons();
+
+        container.querySelectorAll('.comp-card').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-comp-id');
+            selectComponent(id, true, true);
+            // Auto close left drawer on small mobile screens
+            if (window.innerWidth < 1024) {
+              document.getElementById('left-sidebar').classList.add('-translate-x-[115%]');
+            }
+          });
+        });
+      }
+
+      // Select Component & Smoothly Focus 3D Camera
+      function selectComponent(compId, moveCamera = true, showTooltip = false) {
+        const comp = GUITAR_COMPONENTS.find((c) => c.id === compId);
+        if (!comp) return;
+
+        state.activeComponentId = compId;
+        state.exploredSet.add(compId);
+
+        // Update exploration progress badge
+        document.getElementById('progress-badge').textContent = `Eksplorasi: ${state.exploredSet.size}/12`;
+        if (state.exploredSet.size >= 6) unlockAchievement('anatomist');
+
+        // Update Right Sidebar Header
+        document.getElementById('detail-pin-badge').textContent = `PIN #${String(comp.pin).padStart(2, '0')}`;
+        document.getElementById('detail-category-badge').textContent = comp.category;
+        document.getElementById('detail-title').textContent = comp.name;
+        document.getElementById('detail-intl-term').textContent = comp.intlTerm;
+
+        renderComponentList();
+        renderRightTabContent();
+
+        if (moveCamera && comp.cameraOffset) {
+          state.camTargetPos.set(...comp.cameraOffset.pos);
+          state.camLookAt.set(...comp.cameraOffset.target);
+          state.camAnimating = true;
+        }
+
+        if (showTooltip) {
+          openPinTooltip(comp);
+        }
+      }
+
+      // Handle Pin Hotspot Click (Supports both Exploration & 3D Quiz Mode!)
+      function handlePinClick(compId) {
+        if (state.activeRightTab === 'kuis') {
+          submitQuizAnswer(compId);
+        } else {
+          selectComponent(compId, false, true);
+        }
+      }
+
+      function openPinTooltip(comp) {
+        const tooltip = document.getElementById('pin-tooltip');
+        document.getElementById('tooltip-badge').textContent = `PIN #${String(comp.pin).padStart(2, '0')} • ${comp.category}`;
+        document.getElementById('tooltip-title').textContent = comp.name;
+        document.getElementById('tooltip-en').textContent = comp.intlTerm;
+        document.getElementById('tooltip-func').textContent = comp.func;
+        document.getElementById('tooltip-work').textContent = comp.work;
+
+        tooltip.classList.remove('hidden');
+        // Position tooltip cleanly in upper-center viewport without blocking sidebars
+        tooltip.style.left = '50%';
+        tooltip.style.top = '108px';
+        tooltip.style.transform = 'translateX(-50%)';
+      }
+
+      /* =========================================================================
+       * 13. RIGHT SIDEBAR TABS: STRUKTUR, ELEKTRONIKA, PERAWATAN & KUIS 3D
+       * ========================================================================= */
+      function renderRightTabContent() {
+        const container = document.getElementById('right-tab-content');
+        const comp = GUITAR_COMPONENTS.find((c) => c.id === state.activeComponentId) || GUITAR_COMPONENTS[0];
+
+        if (state.activeRightTab === 'struktur') {
+          container.innerHTML = `
+            <!-- 4 Kotak Metrik Informasi Teknis Dinamis -->
+            <div class="grid grid-cols-2 gap-2">
+              ${comp.metrics
+                .map(
+                  (m) => `
+                <div class="bg-slate-900/75 border border-cyan-500/20 rounded-xl p-2.5">
+                  <span class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 block">${m.label}</span>
+                  <span class="font-display font-bold text-xs text-white mt-0.5 block">${m.value}</span>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+
+            <!-- Kotak Titik Pin Komponen Aktif -->
+            <div class="bg-gradient-to-r from-orange-500/15 to-amber-500/10 border border-orange-400/40 rounded-xl p-3">
+              <div class="flex items-center gap-1.5 text-orange-300 font-mono text-[11px] font-bold uppercase mb-1">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                <span>Titik Pin Komponen Aktif (#${comp.pin})</span>
+              </div>
+              <p class="text-xs text-slate-200 leading-relaxed">${comp.pinDetail}</p>
+            </div>
+
+            <!-- Deskripsi & Fungsi Utama -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 space-y-2.5">
+              <div>
+                <h4 class="font-display font-bold text-xs uppercase tracking-wider text-cyan-300 mb-1">Deskripsi & Fungsi Utama</h4>
+                <p class="text-xs text-slate-300 leading-relaxed">${comp.func}</p>
+              </div>
+              <div class="border-t border-slate-800 pt-2">
+                <h4 class="font-display font-bold text-xs uppercase tracking-wider text-purple-300 mb-1">Prinsip Kerja Fisika / Mekanis</h4>
+                <p class="text-xs text-slate-300 leading-relaxed">${comp.work}</p>
+              </div>
+              <div class="border-t border-slate-800 pt-2">
+                <h4 class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 mb-1">Material Standar Industri</h4>
+                <p class="text-xs text-slate-300 leading-relaxed">${comp.materials}</p>
+              </div>
+            </div>
+          `;
+        } else if (state.activeRightTab === 'elektronika') {
+          const signalNodes = [
+            { id: 'senar', label: '1. Senar Baja', desc: 'Senar berbahan nikel/baja bergetar pada frekuensi dasar & harmonik, memodulasi medan magnet statis dari magnet pickup.' },
+            { id: 'pickup', label: '2. Pickup (Induksi)', desc: 'Hukum Faraday (ε = -N dΦ/dt): Perubahan fluks magnet menginduksi tegangan AC ±100–500 mV pada kumparan tembaga. Humbucker memakai 2 kumparan berlawanan fase untuk menolak hum 50/60Hz.' },
+            { id: 'pot', label: '3. Volume & Tone', desc: 'Potensiometer Volume membagi tegangan sinyal ke ground. Potensiometer Tone + Kapasitor (0.022µF) membentuk RC Low-Pass Filter untuk melemahkan frekuensi treble.' },
+            { id: 'switch', label: '4. Selector Switch', desc: 'Sakelar 3-way atau 5-way memilih pickup Neck (hangat), Bridge (tajam), atau kombinasi paralel untuk karakter suara jernih.' },
+            { id: 'jack', label: '5. Output Jack & Shielding', desc: 'Konektor 6.35 mm TS menyalurkan sinyal melalui Tip (+) sementara seluruh rongga dicat grafit/tembaga (Faraday cage) yang terhubung ke Sleeve (Ground).' },
+            { id: 'amp', label: '6. Amplifier Preamp', desc: 'Input Hi-Z (1 MΩ) pada amplifier memperkuat sinyal lemah gitar tanpa membebani induktansi kumparan pickup.' }
+          ];
+
+          container.innerHTML = `
+            <div class="bg-slate-900/75 border border-cyan-500/30 rounded-xl p-3">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="font-display font-bold text-xs uppercase tracking-wider text-cyan-300">Diagram Alur Sinyal Interaktif</h4>
+                <button id="btn-toggle-signal-3d" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 text-[10px] font-mono">
+                  ${state.showSignalFlow ? 'Sinyal 3D: ON' : 'Lihat Pulsa 3D'}
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-2.5">Klik setiap tahapan di bawah untuk mempelajari jalur kelistrikan gitar:</p>
+              
+              <div class="space-y-1.5" id="signal-flow-nodes">
+                ${signalNodes
+                  .map(
+                    (n, i) => `
+                  <button data-node-idx="${i}" class="sig-node-btn w-full text-left px-2.5 py-2 rounded-lg bg-slate-950/80 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-400 text-xs font-semibold text-white flex items-center justify-between transition">
+                    <span>${n.label}</span>
+                    <i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  </button>
+                `
+                  )
+                  .join('')}
+              </div>
+
+              <div id="signal-node-detail" class="mt-2.5 p-2.5 rounded-xl bg-purple-950/40 border border-purple-400/30 text-xs text-slate-200 leading-relaxed">
+                <strong class="text-purple-300 block mb-1">${signalNodes[1].label}</strong>
+                ${signalNodes[1].desc}
+              </div>
+            </div>
+
+            <!-- Perbandingan Single Coil vs Humbucker -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 space-y-2">
+              <h4 class="font-display font-bold text-xs uppercase tracking-wider text-orange-300">Single Coil vs Humbucker</h4>
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <div class="p-2 rounded-lg bg-slate-950/70 border border-cyan-500/20">
+                  <strong class="text-cyan-300 block mb-0.5">Single Coil (1 Kumparan)</strong>
+                  <p class="text-slate-300">Suara jernih, tajam (bright), artikulatif, namun sensitif terhadap dengung listrik (60Hz hum).</p>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-950/70 border border-purple-500/20">
+                  <strong class="text-purple-300 block mb-0.5">Humbucker (2 Kumparan)</strong>
+                  <p class="text-slate-300">Output tinggi, tebal (warm/fat), dan bebas dengung berkat pembatalan fase magnetik.</p>
+                </div>
+              </div>
+            </div>
+          `;
+
+          document.getElementById('btn-toggle-signal-3d').addEventListener('click', () => {
+            toggleSignalFlow();
+            renderRightTabContent();
+          });
+
+          container.querySelectorAll('.sig-node-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const idx = parseInt(btn.getAttribute('data-node-idx'), 10);
+              const node = signalNodes[idx];
+              document.getElementById('signal-node-detail').innerHTML = `
+                <strong class="text-cyan-300 block mb-1">${node.label}</strong>
+                ${node.desc}
+              `;
+              if (!state.showSignalFlow) toggleSignalFlow();
+            });
+          });
+        } else if (state.activeRightTab === 'perawatan') {
+          const guides = [
+            {
+              title: '1. Mengganti Senar Gitar Elektrik',
+              icon: 'repeat',
+              steps: 'Kendurkan senar lama satu per satu, lepaskan dari bridge & tuning post. Masukkan senar baru dari belakang bridge, sisakan ±2–3 jari kelonggaran di tuning post, lalu gulung rapi ke arah bawah.'
+            },
+            {
+              title: '2. Menyetel Tuning Presisi',
+              icon: 'sliders',
+              steps: 'Gunakan chromatic tuner. Selalu setel dari nada lebih rendah naik ke nada target (pitch up) agar roda gigi tuning machine terkunci kencang dan tidak mudah meleset.'
+            },
+            {
+              title: '3. Mengatur String Action',
+              icon: 'arrow-up-down',
+              steps: 'Ukur jarak antara bagian bawah senar dan mahkota fret ke-12. Standar nyaman gitar elektrik: 1.5 mm (senar 1 E tinggi) hingga 2.0 mm (senar 6 E rendah) dengan memutar baut kecil pada saddle.'
+            },
+            {
+              title: '4. Kalibrasi Intonasi Bridge',
+              icon: 'target',
+              steps: 'Bandingkan nada harmonik alami di fret ke-12 dengan nada saat fret ke-12 ditekan. Jika nada tekan terlalu tinggi (sharp), mundurkan saddle menjauhi neck.'
+            },
+            {
+              title: '5. Perawatan Fretboard & Hardware',
+              icon: 'sparkles',
+              steps: 'Bersihkan fretboard Rosewood/Ebony menggunakan lemon oil khusus setiap ganti senar. Lap senar dan bridge krom dengan kain microfiber kering setelah bermain untuk mencegah korosi keringat.'
+            },
+            {
+              title: '6. Diagnosa Masalah Elektronik',
+              icon: 'wrench',
+              steps: 'Suara kresek saat potensio diputar menandakan debu pada jalur karbon (semprot contact cleaner). Dengung hilang saat tangan menyentuh senar menandakan kabel ground bridge terhubung normal.'
+            }
+          ];
+
+          container.innerHTML = `
+            <div class="space-y-2.5">
+              ${guides
+                .map(
+                  (g) => `
+                <div class="bg-slate-900/70 border border-cyan-500/20 rounded-xl p-3">
+                  <div class="flex items-center gap-2 text-cyan-300 font-display font-bold text-xs mb-1">
+                    <i data-lucide="${g.icon}" class="w-4 h-4 text-orange-400 shrink-0"></i>
+                    <span>${g.title}</span>
+                  </div>
+                  <p class="text-xs text-slate-300 leading-relaxed">${g.steps}</p>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `;
+        } else if (state.activeRightTab === 'kuis') {
+          const questions = QUIZ_QUESTIONS[state.quizLevel];
+          const progressPct = Math.round(((state.quizIndex + (state.quizFinished ? 1 : 0)) / questions.length) * 100);
+
+          if (state.quizFinished) {
+            const finalScore = Math.round((state.quizScore / questions.length) * 100);
+            container.innerHTML = `
+              <div class="bg-gradient-to-b from-cyan-950/60 to-purple-950/60 border border-cyan-400/50 rounded-2xl p-4 text-center space-y-3">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-orange-500/20 border border-orange-400 flex items-center justify-center">
+                  <i data-lucide="trophy" class="w-8 h-8 text-orange-400"></i>
+                </div>
+                <h3 class="font-display font-bold text-base text-white">Rekap Nilai Kuis 3D</h3>
+                <div class="text-3xl font-mono font-bold text-cyan-300">${finalScore} / 100</div>
+                <p class="text-xs text-slate-300">Kamu menjawab benar <strong>${state.quizScore} dari ${questions.length}</strong> soal identifikasi komponen 3D pada level <span class="uppercase text-purple-300 font-bold">${state.quizLevel}</span>.</p>
+                <button id="btn-restart-quiz" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition">
+                  Ulangi Kuis / Pilih Level Lain
+                </button>
+              </div>
+            `;
+            document.getElementById('btn-restart-quiz').addEventListener('click', () => {
+              state.quizIndex = 0;
+              state.quizScore = 0;
+              state.quizAnswered = false;
+              state.quizFinished = false;
+              renderRightTabContent();
+            });
+          } else {
+            const currentQ = questions[state.quizIndex];
+            container.innerHTML = `
+              <!-- Level Selector & Score -->
+              <div class="flex items-center justify-between gap-2 bg-slate-950/75 p-2 rounded-xl border border-purple-500/30">
+                <select id="quiz-level-select" class="bg-slate-900 text-xs text-purple-300 font-semibold px-2 py-1 rounded-lg border border-purple-400/30 focus:outline-none">
+                  <option value="pemula" ${state.quizLevel === 'pemula' ? 'selected' : ''}>Level: Pemula</option>
+                  <option value="menengah" ${state.quizLevel === 'menengah' ? 'selected' : ''}>Level: Menengah</option>
+                  <option value="ahli" ${state.quizLevel === 'ahli' ? 'selected' : ''}>Level: Ahli</option>
+                </select>
+                <span class="font-mono text-xs text-cyan-300 font-bold">Skor: ${state.quizScore}/${questions.length}</span>
+              </div>
+
+              <!-- Progress Bar -->
+              <div>
+                <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                  <span>Soal ${state.quizIndex + 1} dari ${questions.length}</span>
+                  <span>${progressPct}%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                  <div class="h-full bg-gradient-to-r from-cyan-400 to-purple-500 transition-all duration-300" style="width: ${progressPct}%"></div>
+                </div>
+              </div>
+
+              <!-- Kotak Instruksi Soal -->
+              <div class="bg-slate-900/85 border border-cyan-400/40 rounded-2xl p-3.5 space-y-2.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-mono font-bold">
+                  <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i> KLIK PIN UNGU DI MODEL 3D
+                </span>
+                <p class="font-display font-semibold text-sm text-white leading-snug">${currentQ.q}</p>
+              </div>
+
+              <!-- Area Umpan Balik Jawaban -->
+              <div id="quiz-feedback-box" class="hidden rounded-xl p-3 text-xs space-y-2"></div>
+            `;
+
+            document.getElementById('quiz-level-select').addEventListener('change', (e) => {
+              state.quizLevel = e.target.value;
+              state.quizIndex = 0;
+              state.quizScore = 0;
+              state.quizAnswered = false;
+              state.quizFinished = false;
+              renderRightTabContent();
+            });
+          }
+        }
+
+        lucide.createIcons();
+      }
+
+      // Evaluate Student Click on 3D Pin during Quiz Mode
+      function submitQuizAnswer(clickedCompId) {
+        if (state.quizFinished || state.quizAnswered) return;
+        const questions = QUIZ_QUESTIONS[state.quizLevel];
+        const currentQ = questions[state.quizIndex];
+        const clickedComp = GUITAR_COMPONENTS.find((c) => c.id === clickedCompId);
+        const correctComp = GUITAR_COMPONENTS.find((c) => c.id === currentQ.answerId);
+
+        state.quizAnswered = true;
+        const isCorrect = clickedCompId === currentQ.answerId;
+
+        if (isCorrect) {
+          state.quizScore += 1;
+          state.quizStreak += 1;
+          if (state.quizStreak >= 3) unlockAchievement('quizChampion');
+        } else {
+          state.quizStreak = 0;
+        }
+
+        const fbBox = document.getElementById('quiz-feedback-box');
+        if (!fbBox) return;
+        fbBox.classList.remove('hidden');
+        fbBox.className = `rounded-xl p-3 text-xs space-y-2 border ${
+          isCorrect
+            ? 'bg-emerald-950/60 border-emerald-400/60 text-emerald-100'
+            : 'bg-rose-950/60 border-rose-400/60 text-rose-100'
+        }`;
+
+        fbBox.innerHTML = `
+          <div class="font-bold flex items-center gap-1.5 text-sm ${isCorrect ? 'text-emerald-300' : 'text-rose-300'}">
+            <i data-lucide="${isCorrect ? 'check-circle' : 'x-circle'}" class="w-4 h-4"></i>
+            <span>${isCorrect ? 'Jawaban Benar!' : `Kurang Tepat (Kamu mengklik ${clickedComp.name})`}</span>
+          </div>
+          <p class="leading-relaxed">${currentQ.explanation}</p>
+          ${!isCorrect ? `<p class="text-[11px] text-amber-300">Jawaban tepat: <strong>Pin #${correctComp.pin} — ${correctComp.name}</strong></p>` : ''}
+          <button id="btn-next-quiz" class="w-full mt-2 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition">
+            ${state.quizIndex + 1 < questions.length ? 'Soal Berikutnya →' : 'Lihat Rekap Nilai Akhir'}
+          </button>
+        `;
+
+        lucide.createIcons();
+
+        document.getElementById('btn-next-quiz').addEventListener('click', () => {
+          state.quizAnswered = false;
+          if (state.quizIndex + 1 < questions.length) {
+            state.quizIndex += 1;
+          } else {
+            state.quizFinished = true;
+          }
+          renderRightTabContent();
+        });
+      }
+
+      /* =========================================================================
+       * 14. VIRTUAL AUDIO LAB UI RENDERING & BINDING
+       * ========================================================================= */
+      function renderVirtualStringsUI() {
+        const container = document.getElementById('virtual-strings-container');
+        const tuning = TUNINGS[state.activeTuning];
+        document.getElementById('audio-tuning-label').textContent = tuning.name;
+
+        container.innerHTML = tuning.strings
+          .map((str, idx) => {
+            const thickness = 4.2 - idx * 0.45;
+            return `
+              <button data-str-idx="${idx}" data-freq="${str.freq}" class="v-string-btn w-full group flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-cyan-500/15 transition text-left">
+                <span class="w-7 text-center font-mono font-bold text-xs px-1 py-0.5 rounded bg-slate-800 text-cyan-300 border border-cyan-500/30">${str.note}</span>
+                <div class="flex-1 relative flex items-center">
+                  <div class="v-string-wire w-full rounded-full bg-gradient-to-r from-slate-300 via-cyan-200 to-slate-400 group-hover:from-cyan-300 group-hover:to-orange-300 transition-all" style="height: ${thickness}px;"></div>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400 w-12 text-right">${str.freq.toFixed(1)}Hz</span>
+              </button>
+            `;
+          })
+          .join('');
+
+        container.querySelectorAll('.v-string-btn').forEach((btn) => {
+          const triggerPluck = () => {
+            const idx = parseInt(btn.getAttribute('data-str-idx'), 10);
+            const freq = parseFloat(btn.getAttribute('data-freq'));
+            audioEngine.pluckString(freq, state.pickupMode, state.activeEffect);
+            stringVibrationTimers[idx] = 1.0; // Vibrate corresponding 3D string!
+            unlockAchievement('soundEngineer');
+
+            const wire = btn.querySelector('.v-string-wire');
+            wire.classList.remove('string-plucked');
+            void wire.offsetWidth;
+            wire.classList.add('string-plucked');
+          };
+
+          btn.addEventListener('pointerdown', triggerPluck);
+        });
+      }
+
+      /* =========================================================================
+       * 15. TOOLBAR & EVENT LISTENERS SETUP
+       * ========================================================================= */
+      function toggleDockBtnVisual(btnId, active) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        if (active) {
+          btn.classList.add('active', 'bg-cyan-500/25', 'border-cyan-400', 'text-cyan-200');
+          btn.classList.remove('bg-slate-900/80', 'border-slate-700', 'text-slate-200');
+        } else {
+          btn.classList.remove('active', 'bg-cyan-500/25', 'border-cyan-400', 'text-cyan-200');
+          btn.classList.add('bg-slate-900/80', 'border-slate-700', 'text-slate-200');
+        }
+      }
+
+      function toggleSignalFlow() {
+        state.showSignalFlow = !state.showSignalFlow;
+        toggleDockBtnVisual('dock-signal', state.showSignalFlow);
+        if (state.showSignalFlow && !state.isXray && !state.isExploded) {
+          state.isXray = true;
+          toggleDockBtnVisual('dock-xray', true);
+          applyXrayState();
+        }
+      }
+
+      function setupAllEventListeners() {
+        // Guide Modal
+        const closeGuide = () => document.getElementById('guide-modal').classList.add('hidden');
+        document.getElementById('btn-start-lab').addEventListener('click', closeGuide);
+        document.getElementById('close-guide-x').addEventListener('click', closeGuide);
+        document.getElementById('btn-open-guide').addEventListener('click', () => {
+          document.getElementById('guide-modal').classList.remove('hidden');
+        });
+
+        // Achievements Modal
+        document.getElementById('btn-open-achievements').addEventListener('click', () => {
+          const list = document.getElementById('achievements-list');
+          list.innerHTML = Object.values(state.achievements)
+            .map(
+              (a) => `
+              <div class="p-3 rounded-xl border ${a.unlocked ? 'bg-purple-500/15 border-purple-400/50 text-white' : 'bg-slate-900/50 border-slate-800 text-slate-500'} flex items-center gap-3">
+                <i data-lucide="${a.unlocked ? 'award' : 'lock'}" class="w-5 h-5 ${a.unlocked ? 'text-orange-400' : 'text-slate-600'} shrink-0"></i>
+                <div>
+                  <div class="font-bold text-xs">${a.title}</div>
+                  <div class="text-[11px]">${a.desc}</div>
+                </div>
+              </div>
+            `
+            )
+            .join('');
+          lucide.createIcons();
+          const modal = document.getElementById('achievements-modal');
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        });
+
+        document.getElementById('close-achievements-btn').addEventListener('click', () => {
+          const modal = document.getElementById('achievements-modal');
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        });
+
+        // Header Guitar Model Selector
+        document.getElementById('guitar-model-select').addEventListener('change', (e) => {
+          state.activeModel = e.target.value;
+          const cfg = GUITAR_MODELS[state.activeModel];
+          document.getElementById('guitar-construction-label').textContent = cfg.construction;
+          document.getElementById('header-pickup-config').textContent = cfg.pickupConfig;
+          buildProceduralGuitar(state.activeModel);
+          showToast(`Instrumen diubah ke ${cfg.name}`);
+        });
+
+        // Header Tuning Selector
+        document.getElementById('header-tuning-select').addEventListener('change', (e) => {
+          state.activeTuning = e.target.value;
+          const t = TUNINGS[state.activeTuning];
+          document.getElementById('header-tuning-notes').textContent = t.label;
+          renderVirtualStringsUI();
+          showToast(`Tuning aktif: ${t.name}`);
+        });
+
+        // Left Sidebar Search & Category Filters
+        document.getElementById('component-search').addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          renderComponentList();
+        });
+
+        document.querySelectorAll('.cat-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.cat-btn').forEach((b) => {
+              b.classList.remove('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/50');
+              b.classList.add('bg-slate-900/60', 'text-slate-300', 'border-slate-700');
+            });
+            btn.classList.add('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/50');
+            btn.classList.remove('bg-slate-900/60', 'text-slate-300', 'border-slate-700');
+            state.activeCategory = btn.getAttribute('data-cat');
+            renderComponentList();
+          });
+        });
+
+        // Right Sidebar Tabs
+        document.querySelectorAll('.right-tab-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.right-tab-btn').forEach((b) => {
+              b.classList.remove('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/40');
+              b.classList.add('text-slate-400');
+            });
+            btn.classList.add('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/40');
+            btn.classList.remove('text-slate-400');
+            state.activeRightTab = btn.getAttribute('data-tab');
+            if (state.activeRightTab === 'kuis') {
+              document.getElementById('pin-tooltip').classList.add('hidden');
+              if (!state.showPins) {
+                state.showPins = true;
+                toggleDockBtnVisual('dock-pins', true);
+              }
+            }
+            renderRightTabContent();
+          });
+        });
+
+        // Tooltip Close
+        document.getElementById('close-tooltip-btn').addEventListener('click', () => {
+          document.getElementById('pin-tooltip').classList.add('hidden');
+        });
+
+        // Mobile Drawer Toggles
+        document.getElementById('toggle-left-sidebar').addEventListener('click', () => {
+          document.getElementById('left-sidebar').classList.toggle('-translate-x-[115%]');
+        });
+        document.getElementById('close-left-sidebar').addEventListener('click', () => {
+          document.getElementById('left-sidebar').classList.add('-translate-x-[115%]');
+        });
+        document.getElementById('toggle-right-sidebar').addEventListener('click', () => {
+          document.getElementById('right-sidebar').classList.toggle('translate-x-[115%]');
+        });
+        document.getElementById('close-right-sidebar').addEventListener('click', () => {
+          document.getElementById('right-sidebar').classList.add('translate-x-[115%]');
+        });
+
+        // Bottom Floating Dock Controls
+        document.getElementById('dock-exploded').addEventListener('click', () => {
+          state.isExploded = !state.isExploded;
+          toggleDockBtnVisual('dock-exploded', state.isExploded);
+          if (state.isExploded) unlockAchievement('xrayMaster');
+        });
+
+        const clipSelect = document.getElementById('dock-clip-mode');
+        const clipSlider = document.getElementById('dock-clip-slider');
+        clipSelect.addEventListener('change', (e) => {
+          state.clipMode = e.target.value;
+          clipSlider.classList.toggle('hidden', state.clipMode === 'none');
+          applyClippingPlanes();
+        });
+        clipSlider.addEventListener('input', (e) => {
+          state.clipValue = parseFloat(e.target.value);
+          applyClippingPlanes();
+        });
+
+        document.getElementById('dock-xray').addEventListener('click', () => {
+          state.isXray = !state.isXray;
+          toggleDockBtnVisual('dock-xray', state.isXray);
+          applyXrayState();
+          if (state.isXray) unlockAchievement('xrayMaster');
+        });
+
+        document.getElementById('dock-wireframe').addEventListener('click', () => {
+          state.isWireframe = !state.isWireframe;
+          toggleDockBtnVisual('dock-wireframe', state.isWireframe);
+          applyWireframeState();
+        });
+
+        document.getElementById('dock-pins').addEventListener('click', () => {
+          state.showPins = !state.showPins;
+          toggleDockBtnVisual('dock-pins', state.showPins);
+          if (!state.showPins) document.getElementById('pin-tooltip').classList.add('hidden');
+        });
+
+        document.getElementById('dock-autorotate').addEventListener('click', () => {
+          state.autoRotate = !state.autoRotate;
+          toggleDockBtnVisual('dock-autorotate', state.autoRotate);
+        });
+
+        document.getElementById('dock-vibrate').addEventListener('click', () => {
+          state.isVibrating = !state.isVibrating;
+          toggleDockBtnVisual('dock-vibrate', state.isVibrating);
+          if (state.isVibrating) {
+            // Soft acoustic strum preview
+            const strings = TUNINGS[state.activeTuning].strings;
+            strings.forEach((s, i) => {
+              setTimeout(() => audioEngine.pluckString(s.freq, state.pickupMode, state.activeEffect), i * 55);
+            });
+          }
+        });
+
+        document.getElementById('dock-signal').addEventListener('click', toggleSignalFlow);
+
+        document.getElementById('dock-audiolab').addEventListener('click', () => {
+          state.audioLabOpen = !state.audioLabOpen;
+          document.getElementById('audio-lab-panel').classList.toggle('hidden', !state.audioLabOpen);
+          if (state.audioLabOpen) audioEngine.init();
+        });
+
+        document.getElementById('btn-close-audio').addEventListener('click', () => {
+          state.audioLabOpen = false;
+          document.getElementById('audio-lab-panel').classList.add('hidden');
+        });
+
+        document.getElementById('dock-reset').addEventListener('click', () => {
+          state.camTargetPos.set(0.4, 0.3, 4.8);
+          state.camLookAt.set(0, 0.25, 0);
+          state.camAnimating = true;
+          if (guitarRootGroup) guitarRootGroup.rotation.set(0, 0, 0);
+        });
+
+        // Audio Lab Controls: Strum All, Pickup Selector, FX Selector, Amp Sliders
+        document.getElementById('btn-strum-all').addEventListener('click', () => {
+          const strings = TUNINGS[state.activeTuning].strings;
+          unlockAchievement('soundEngineer');
+          strings.forEach((s, idx) => {
+            setTimeout(() => {
+              audioEngine.pluckString(s.freq, state.pickupMode, state.activeEffect);
+              stringVibrationTimers[idx] = 1.0;
+            }, idx * 65);
+          });
+        });
+
+        document.querySelectorAll('.pickup-mode-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.pickup-mode-btn').forEach((b) => {
+              b.classList.remove('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/50');
+              b.classList.add('bg-slate-900', 'text-slate-300', 'border-slate-700');
+            });
+            btn.classList.add('active', 'bg-cyan-500/25', 'text-cyan-200', 'border-cyan-400/50');
+            btn.classList.remove('bg-slate-900', 'text-slate-300', 'border-slate-700');
+            state.pickupMode = btn.getAttribute('data-pickup-type');
+            document.getElementById('header-pickup-active').textContent =
+              state.pickupMode === 'single' ? 'Aktif: Single Coil' : 'Aktif: Humbucker';
+          });
+        });
+
+        document.querySelectorAll('.fx-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.fx-btn').forEach((b) => {
+              b.classList.remove('active', 'bg-emerald-500/25', 'text-emerald-200', 'border-emerald-400/50');
+              b.classList.add('bg-slate-900', 'text-slate-300', 'border-slate-700');
+            });
+            btn.classList.add('active', 'bg-emerald-500/25', 'text-emerald-200', 'border-emerald-400/50');
+            btn.classList.remove('bg-slate-900', 'text-slate-300', 'border-slate-700');
+            state.activeEffect = btn.getAttribute('data-fx');
+            const gainVal = parseFloat(document.getElementById('amp-gain').value);
+            audioEngine.updateDriveCurve(state.activeEffect, gainVal);
+          });
+        });
+
+        // Amplifier Sliders
+        document.getElementById('amp-gain').addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          document.getElementById('val-gain').textContent = val.toFixed(1);
+          audioEngine.updateDriveCurve(state.activeEffect, val);
+        });
+        document.getElementById('amp-bass').addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10);
+          document.getElementById('val-bass').textContent = val > 0 ? `+${val}` : val;
+          if (audioEngine.bassFilter) audioEngine.bassFilter.gain.value = val;
+        });
+        document.getElementById('amp-mid').addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10);
+          document.getElementById('val-mid').textContent = val > 0 ? `+${val}` : val;
+          if (audioEngine.midFilter) audioEngine.midFilter.gain.value = val;
+        });
+        document.getElementById('amp-treble').addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10);
+          document.getElementById('val-treble').textContent = val > 0 ? `+${val}` : val;
+          if (audioEngine.trebleFilter) audioEngine.trebleFilter.gain.value = val;
+        });
+        document.getElementById('amp-master').addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          document.getElementById('val-master').textContent = `${Math.round(val * 100)}%`;
+          if (audioEngine.masterGain) audioEngine.masterGain.gain.value = val;
+        });
+      }
+
+      /* =========================================================================
+       * 16. BOOTSTRAP APPLICATION ON WINDOW LOAD
+       * ========================================================================= */
+      window.addEventListener('load', () => {
+        lucide.createIcons();
+        initThreeJS();
+        renderComponentList();
+        renderRightTabContent();
+        renderVirtualStringsUI();
+        setupAllEventListeners();
+        animate();
+      });
+    })();
+  </script>
+</body>
+</html>
